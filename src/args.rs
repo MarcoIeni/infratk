@@ -9,10 +9,12 @@ pub struct CliArgs {
 pub enum Command {
     /// Upgrade terragrunt states or Terraform modules.
     Upgrade,
+    /// Given a PR, run terragrunt/terraform plan on every module that changed.
     PlanPr(PlanPr),
 }
 
 #[derive(clap::Parser, Debug)]
 pub struct PlanPr {
-    pr_number: u32,
+    /// PR Number OR URL OR Branch.
+    pub pr: String,
 }

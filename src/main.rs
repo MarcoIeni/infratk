@@ -14,6 +14,6 @@ fn main() {
     log::init(true);
     match args.command {
         args::Command::Upgrade => command::upgrade::upgrade(),
-        args::Command::PlanPr(_plan_pr) => todo!(),
+        args::Command::PlanPr(args) => command::plan_pr::plan_pr(args),
     }
 }
