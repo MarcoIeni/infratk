@@ -44,6 +44,19 @@ impl CmdRunner {
             PlanOutcome::NoChanges
         } else {
             let plan_details = output.stdout().split("Terraform will perform the following actions:").last().expect("Terraform output did not contain 'Terraform will perform the following actions:'");
+            let mut plan_details = match plan_details
+                .split(
+                    "─────────────────────────────────────────────────────────────────────────────",
+                )
+                .next()
+            {
+                Some(plan) => plan,
+                None => plan_details,
+            }
+            .to_string();
+            if output.status().code().unwrap() == 1 {
+                plan_details.push_str(output.stderr())
+            }
             PlanOutcome::Changes(plan_details.to_string())
         }
     }
