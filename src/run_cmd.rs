@@ -1,8 +1,9 @@
-use std::process::{Command, ExitStatus};
+use std::process::{Command, ExitStatus, Stdio};
 
 use camino::Utf8PathBuf;
 use tracing::debug;
 
+#[derive(Debug)]
 pub struct CmdOutput {
     status: ExitStatus,
     stdout: String,
@@ -27,6 +28,7 @@ pub struct Cmd {
     name: String,
     args: Vec<String>,
     current_dir: Option<Utf8PathBuf>,
+    hide_stdout: bool,
 }
 
 impl Cmd {
@@ -43,11 +45,17 @@ impl Cmd {
             name: cmd_name.to_string(),
             args,
             current_dir: None,
+            hide_stdout: false,
         }
     }
 
     pub fn with_current_dir(&mut self, dir: impl Into<Utf8PathBuf>) -> &mut Self {
         self.current_dir = Some(dir.into());
+        self
+    }
+
+    pub fn hide_stdout(&mut self) -> &mut Self {
+        self.hide_stdout = true;
         self
     }
 
@@ -57,14 +65,21 @@ impl Cmd {
         if let Some(dir) = &self.current_dir {
             command.current_dir(dir);
         }
-        let child = command.args(&self.args).spawn().unwrap();
+        let child = command
+            .args(&self.args)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
         let output = child.wait_with_output().unwrap();
 
         let output_stdout = String::from_utf8(output.stdout).unwrap();
         let output_stderr = String::from_utf8(output.stderr).unwrap();
+        if !self.hide_stdout {
+            println!("{}", output_stdout);
+        }
+        eprintln!("{}", output_stderr);
 
-        debug!("{} stderr: {}", self.name, output_stderr);
-        debug!("{} stdout: {}", self.name, output_stdout);
         assert!(output.status.success());
 
         CmdOutput {

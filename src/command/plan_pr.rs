@@ -9,12 +9,10 @@ pub fn plan_pr(args: PlanPr) {
 
 fn get_files_changes(pr: String) -> Vec<Utf8PathBuf> {
     Cmd::new("gh", ["pr", "diff", &pr, "--name-only"])
+        .hide_stdout()
         .run()
         .stdout()
         .lines()
-        .map(|line| {
-            let file = line.split(" ").last().unwrap();
-            Utf8PathBuf::from(file)
-        })
+        .map(Utf8PathBuf::from)
         .collect()
 }
