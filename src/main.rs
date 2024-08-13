@@ -1,11 +1,11 @@
 mod args;
 mod aws;
-mod log;
 mod cmd;
-mod select;
+mod cmd_runner;
 mod command;
 mod dir;
-mod cmd_runner;
+mod log;
+mod select;
 
 use args::CliArgs;
 use clap::Parser as _;

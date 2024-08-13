@@ -45,7 +45,6 @@ impl CmdRunner {
         } else {
             PlanOutcome::Changes(output.stdout().to_string())
         }
-
     }
 
     pub fn terragrunt_init_upgrade(&self, state: &Utf8Path) {

@@ -11,6 +11,7 @@ use crate::{
 };
 
 pub fn plan_pr(args: PlanPr) {
+    // TODO: assert you are in the same branch as the PR locally
     assert!(current_dir_is_simpleinfra());
     let files_changed = get_files_changes(args.pr);
     println!("Files changed in PR: {:?}", files_changed);
