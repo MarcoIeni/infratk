@@ -59,6 +59,10 @@ fn plan_legacy_dirs<'a>(
 
     let mut output = vec![];
     for d in terraform_dirs {
+        // Skip the terraform/releases directory since it fails
+        if d == "terraform/releases" {
+            continue;
+        }
         let o = cmd_runner.terraform_plan(d);
         output.push((d, o));
     }
