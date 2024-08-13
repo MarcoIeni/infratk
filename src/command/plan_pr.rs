@@ -23,7 +23,7 @@ pub fn plan_pr(args: PlanPr) {
         .map(|file| file.parent().unwrap())
         .collect();
     let output = plan_directories(directories);
-    println!("==============================\n{output:?}");
+    print_output(output);
 }
 
 /// Print two lists of directories, one for each outcome
