@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use arboard::Clipboard;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
+use regex::Regex;
 
 use crate::{
     args::PlanPr,
@@ -27,6 +28,10 @@ pub fn plan_pr(args: PlanPr) {
     let output_str = format_output(output);
     println!("{output_str}");
     if args.clipboard {
+        // Strip ANSI escape sequences
+        let re = Regex::new(r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])").unwrap();
+        let output_str = re.replace_all(&output_str, "").to_string();
+
         let mut clipboard = Clipboard::new().unwrap();
         clipboard.set_text(output_str).unwrap();
     }
