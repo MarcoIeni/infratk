@@ -3,7 +3,7 @@ use git_cmd::Repo;
 use tracing::debug;
 
 use crate::{
-    aws, select,
+    aws, dir, select,
     terragrunt::{self, PlanOutcome},
 };
 
@@ -53,8 +53,7 @@ fn list_directories_at_path(path: &Utf8Path) -> Vec<Utf8PathBuf> {
 }
 
 fn repo() -> Repo {
-    let current_dir = std::env::current_dir().unwrap();
-    let current_dir = Utf8PathBuf::from_path_buf(current_dir).unwrap();
+    let current_dir = dir::current_dir();
     git_cmd::Repo::new(current_dir).unwrap()
 }
 

@@ -5,11 +5,13 @@ use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 use crate::{
     args::PlanPr,
     aws,
+    dir::current_dir_is_simpleinfra,
     run_cmd::Cmd,
     terragrunt::{self, PlanOutcome},
 };
 
 pub fn plan_pr(args: PlanPr) {
+    assert!(current_dir_is_simpleinfra());
     let files_changed = get_files_changes(args.pr);
     println!("Files changed in PR: {:?}", files_changed);
     let lock_files = get_lock_files(files_changed);

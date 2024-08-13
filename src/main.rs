@@ -5,6 +5,7 @@ mod run_cmd;
 mod select;
 mod terragrunt;
 mod command;
+mod dir;
 
 use args::CliArgs;
 use clap::Parser as _;
