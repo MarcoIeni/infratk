@@ -10,7 +10,7 @@ pub fn login(account_dir: &str) {
 }
 
 pub fn legacy_login() {
-    let outcome = Cmd::new("eval", ["$(~/proj/simpleinfra/aws-creds.py)"]).run();
+    let outcome = Cmd::new("eval", ["$(./aws-creds.py)"]).run();
     assert!(
         outcome.status().success(),
         "failed to login to legacy account"
