@@ -3,8 +3,9 @@ use git_cmd::Repo;
 use tracing::debug;
 
 use crate::{
-    aws, dir, select,
-    terragrunt::{self, PlanOutcome},
+    aws,
+    cmd_runner::{CmdRunner, PlanOutcome},
+    dir, select,
 };
 
 pub fn upgrade() {
@@ -21,18 +22,16 @@ fn upgrade_accounts(accounts: Vec<Utf8PathBuf>) {
     for account in accounts {
         // logout before login, to avoid issues with multiple profiles
         aws::sso_logout();
-        aws::sso_login(account.file_name().unwrap());
+        let env_vars = aws::login(account.file_name().unwrap());
+        let cmd_runner = CmdRunner::new(env_vars);
         let states = list_directories_at_path(&account);
         let selected_states = select::select_states(states);
         println!("Selected states: {:?}", selected_states);
         for state in selected_states {
             // Update lockfile
-            terragrunt::terragrunt_init_upgrade(&state);
+            cmd_runner.terragrunt_init_upgrade(&state);
             // Verify that there are no changes to apply, to ensure that the state is up-to-date
-            assert_eq!(
-                terragrunt::are_changes_applied(&state),
-                PlanOutcome::NoChanges
-            );
+            assert_eq!(cmd_runner.terragrunt_plan(&state), PlanOutcome::NoChanges);
         }
     }
 }

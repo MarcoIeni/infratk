@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     io::{BufRead as _, BufReader},
     process::{Command, ExitStatus, Stdio},
     sync::mpsc,
@@ -6,6 +7,7 @@ use std::{
 };
 
 use camino::Utf8PathBuf;
+use secrecy::{ExposeSecret, SecretString};
 
 #[derive(Debug)]
 pub struct CmdOutput {
@@ -30,6 +32,7 @@ impl CmdOutput {
 
 pub struct Cmd {
     name: String,
+    env_vars: BTreeMap<String, SecretString>,
     args: Vec<String>,
     current_dir: Option<Utf8PathBuf>,
     hide_stdout: bool,
@@ -50,7 +53,13 @@ impl Cmd {
             args,
             current_dir: None,
             hide_stdout: false,
+            env_vars: BTreeMap::new(),
         }
+    }
+
+    pub fn with_env_vars(&mut self, env_vars: BTreeMap<String, SecretString>) -> &mut Self {
+        self.env_vars = env_vars;
+        self
     }
 
     pub fn with_current_dir(&mut self, dir: impl Into<Utf8PathBuf>) -> &mut Self {
@@ -69,6 +78,9 @@ impl Cmd {
         if let Some(dir) = &self.current_dir {
             command.current_dir(dir);
             to_print.push_str(&format!(" 👉 {}", dir));
+        }
+        for (key, value) in &self.env_vars {
+            command.env(key, value.expose_secret());
         }
         println!("{to_print}");
         let mut child = command

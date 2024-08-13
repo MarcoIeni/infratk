@@ -1,18 +1,25 @@
-use std::env;
+use std::collections::BTreeMap;
 
-use crate::run_cmd::Cmd;
+use secrecy::SecretString;
 
-// TODO: handle legacy login?
+use crate::cmd::Cmd;
 
-pub fn login(account_dir: &str) {
+/// Returns a map of environment variables that you need to use to authenticate with the account.
+#[must_use]
+pub fn login(account_dir: &str) -> BTreeMap<String, SecretString> {
     match account_dir {
         "legacy" => legacy_login(),
-        _ => sso_login(account_dir),
+        _ => {
+            sso_login(account_dir);
+            BTreeMap::new()
+        }
     }
 }
 
-pub fn legacy_login() {
-    let outcome = Cmd::new("python3", ["./aws-creds.py"]).hide_stdout().run();
+/// Returns a map of environment variables that can be used to authenticate with the legacy account.
+pub fn legacy_login() -> BTreeMap<String, SecretString> {
+    let mut env_vars = BTreeMap::new();
+    let outcome = Cmd::new("python3", ["./aws-creds.py"]).run();
     assert!(
         outcome.status().success(),
         "failed to login to legacy account"
@@ -22,9 +29,10 @@ pub fn legacy_login() {
             let parts: Vec<&str> = line.split_whitespace().collect();
             let key = parts[1].split('=').next().unwrap();
             let value = parts[1].split('=').last().unwrap();
-            env::set_var(key, value);
+            env_vars.insert(key.to_string(), SecretString::new(value.to_string()));
         }
     }
+    env_vars
 }
 
 pub fn sso_login(account_dir: &str) {
