@@ -1,4 +1,9 @@
-use std::process::{Command, ExitStatus, Stdio};
+use std::{
+    io::{BufRead as _, BufReader},
+    process::{Command, ExitStatus, Stdio},
+    sync::mpsc,
+    thread,
+};
 
 use camino::Utf8PathBuf;
 
@@ -59,30 +64,65 @@ impl Cmd {
     }
 
     pub fn run(&self) -> CmdOutput {
-        println!("🚀 {} {}", self.name, self.args.join(" "));
+        let mut to_print = format!("🚀 {} {}", self.name, self.args.join(" "));
         let mut command = Command::new(&self.name);
         if let Some(dir) = &self.current_dir {
             command.current_dir(dir);
+            to_print.push_str(&format!(" 👉 {}", dir));
         }
-        let child = command
+        println!("{to_print}");
+        let mut child = command
             .args(&self.args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        let output = child.wait_with_output().unwrap();
+        let stdout = child.stdout.take().unwrap();
+        let stderr = child.stderr.take().unwrap();
 
-        let output_stdout = String::from_utf8(output.stdout).unwrap();
-        let output_stderr = String::from_utf8(output.stderr).unwrap();
-        if !self.hide_stdout {
-            println!("{}", output_stdout);
+        let (tx, rx) = mpsc::channel();
+
+        // Thread to read stdout
+        let tx_clone = tx.clone();
+        thread::spawn(move || {
+            let reader = BufReader::new(stdout);
+            for line in reader.lines() {
+                let line = line.unwrap();
+                tx_clone.send((line.clone(), true)).unwrap();
+            }
+        });
+
+        // Thread to read stderr
+        thread::spawn(move || {
+            let reader = BufReader::new(stderr);
+            for line in reader.lines() {
+                let line = line.unwrap();
+                tx.send((line.clone(), false)).unwrap();
+            }
+        });
+
+        let mut output_stdout = String::new();
+        let mut output_stderr = String::new();
+
+        for (line, is_stdout) in rx {
+            if is_stdout {
+                if !self.hide_stdout {
+                    println!("{}", line);
+                }
+                output_stdout.push_str(&line);
+                output_stdout.push('\n');
+            } else {
+                eprintln!("{}", line);
+                output_stderr.push_str(&line);
+                output_stderr.push('\n');
+            }
         }
-        eprintln!("{}", output_stderr);
+        let output = child.wait().unwrap();
 
-        assert!(output.status.success());
+        assert!(output.success());
 
         CmdOutput {
-            status: output.status,
+            status: output,
             stdout: output_stdout,
             stderr: output_stderr,
         }

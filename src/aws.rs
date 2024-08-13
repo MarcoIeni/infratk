@@ -1,3 +1,5 @@
+use std::env;
+
 use crate::run_cmd::Cmd;
 
 // TODO: handle legacy login?
@@ -10,11 +12,19 @@ pub fn login(account_dir: &str) {
 }
 
 pub fn legacy_login() {
-    let outcome = Cmd::new("eval", ["$(./aws-creds.py)"]).run();
+    let outcome = Cmd::new("python3", ["./aws-creds.py"]).hide_stdout().run();
     assert!(
         outcome.status().success(),
         "failed to login to legacy account"
     );
+    for line in outcome.stdout().lines() {
+        if line.contains("export") {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            let key = parts[1].split('=').next().unwrap();
+            let value = parts[1].split('=').last().unwrap();
+            env::set_var(key, value);
+        }
+    }
 }
 
 pub fn sso_login(account_dir: &str) {
