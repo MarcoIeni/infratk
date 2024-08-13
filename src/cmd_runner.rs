@@ -43,7 +43,8 @@ impl CmdRunner {
         if is_diff_empty {
             PlanOutcome::NoChanges
         } else {
-            PlanOutcome::Changes(output.stdout().to_string())
+            let plan_details = output.stdout().split("Terraform will perform the following actions:").last().expect("Terraform output did not contain 'Terraform will perform the following actions:'");
+            PlanOutcome::Changes(plan_details.to_string())
         }
     }
 

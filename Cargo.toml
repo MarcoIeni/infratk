@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+arboard = "3.4.0"
 camino = "1.1.7"
 clap = { version = "4.5.15", features = ["derive", "env"] }
 git_cmd = "0.6.9"

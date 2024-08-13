@@ -17,4 +17,7 @@ pub enum Command {
 pub struct PlanPr {
     /// PR Number OR URL OR Branch.
     pub pr: String,
+    /// If true, copy the output to the clipboard.
+    #[arg(long)]
+    pub clipboard: bool,
 }

@@ -1,6 +1,7 @@
 use core::panic;
 use std::collections::BTreeMap;
 
+use arboard::Clipboard;
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 
 use crate::{
@@ -23,7 +24,12 @@ pub fn plan_pr(args: PlanPr) {
         .map(|file| file.parent().unwrap())
         .collect();
     let output = plan_directories(directories);
-    print_output(output);
+    let output_str = format_output(output);
+    println!("{output_str}");
+    if args.clipboard {
+        let mut clipboard = Clipboard::new().unwrap();
+        clipboard.set_text(output_str).unwrap();
+    }
 }
 
 fn assert_current_branch_is_same_as_pr(pr: &str) {
@@ -63,29 +69,38 @@ fn get_pr_branch(pr: &str) -> String {
 }
 
 /// Print two lists of directories, one for each outcome
-fn print_output(output: Vec<(&Utf8Path, PlanOutcome)>) {
+fn format_output(output: Vec<(&Utf8Path, PlanOutcome)>) -> String {
+    let mut output_str = String::from("📃📃 Plan summary 📃📃\n");
     let (no_changes, changes): (Vec<_>, Vec<_>) = output
         .into_iter()
         .partition(|(_, o)| matches!(o, PlanOutcome::NoChanges));
-    println!("📃📃 Plan summary 📃📃");
-    println!("No changes detected (apply not needed):");
-    for (dir, _) in no_changes {
-        println!("✅ {}", dir);
+    if !no_changes.is_empty() {
+        output_str.push_str("No changes detected (apply not needed):\n");
     }
-    println!("Changes detected (apply needed):");
-    for (dir, _) in &changes {
-        println!("❌ {}", dir);
+    for (dir, _) in no_changes {
+        output_str.push_str(&format!("✅ {}\n", dir));
     }
 
-    println!("\n📃📃 Plan output 📃📃");
+    if !changes.is_empty() {
+        output_str.push_str("Changes detected (apply needed):\n");
+    }
+    for (dir, _) in &changes {
+        output_str.push_str(&format!("❌ {}\n", dir));
+    }
+
+    if !changes.is_empty() {
+        output_str.push_str("\n📃📃 Plan output 📃📃\n");
+    }
     for (dir, output) in &changes {
-        println!("👉 {}:", dir);
+        output_str.push_str(&format!("👉 {}:\n", dir));
         if let PlanOutcome::Changes(output) = output {
-            println!("{}", output);
+            output_str.push_str(&format!("{}\n", output));
         } else {
             panic!("Expected changes, got no changes");
         }
     }
+
+    output_str
 }
 
 fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(&Utf8Path, PlanOutcome)> {
