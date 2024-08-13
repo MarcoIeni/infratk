@@ -131,8 +131,6 @@ impl Cmd {
         }
         let output = child.wait().unwrap();
 
-        assert!(output.success());
-
         CmdOutput {
             status: output,
             stdout: output_stdout,

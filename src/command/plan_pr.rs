@@ -1,3 +1,4 @@
+use core::panic;
 use std::collections::BTreeMap;
 
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
@@ -23,6 +24,31 @@ pub fn plan_pr(args: PlanPr) {
         .collect();
     let output = plan_directories(directories);
     println!("==============================\n{output:?}");
+}
+
+/// Print two lists of directories, one for each outcome
+fn print_output(output: Vec<(&Utf8Path, PlanOutcome)>) {
+    let (no_changes, changes): (Vec<_>, Vec<_>) = output
+        .into_iter()
+        .partition(|(_, o)| matches!(o, PlanOutcome::NoChanges));
+    println!("No changes:");
+    for (dir, _) in no_changes {
+        println!("✅ {}", dir);
+    }
+    println!("Changes:");
+    for (dir, _) in &changes {
+        println!("❌ {}", dir);
+    }
+
+    for (dir, output) in &changes {
+        println!("📃 Plan output");
+        println!("👉 {}:", dir);
+        if let PlanOutcome::Changes(output) = output {
+            println!("{}", output);
+        } else {
+            panic!("Expected changes, got no changes");
+        }
+    }
 }
 
 fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(&Utf8Path, PlanOutcome)> {
