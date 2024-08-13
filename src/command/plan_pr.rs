@@ -12,8 +12,8 @@ use crate::{
 };
 
 pub fn plan_pr(args: PlanPr) {
-    // TODO: assert you are in the same branch as the PR locally
     assert!(current_dir_is_simpleinfra());
+    assert_current_branch_is_same_as_pr(&args.pr);
     let files_changed = get_files_changes(args.pr);
     println!("Files changed in PR: {:?}", files_changed);
     let lock_files = get_lock_files(files_changed);
@@ -24,6 +24,42 @@ pub fn plan_pr(args: PlanPr) {
         .collect();
     let output = plan_directories(directories);
     print_output(output);
+}
+
+fn assert_current_branch_is_same_as_pr(pr: &str) {
+    let current_branch = get_current_branch();
+    let pr_branch = get_pr_branch(pr);
+    assert_eq!(
+        current_branch, pr_branch,
+        "You are not in the same branch as the PR locally"
+    );
+}
+
+fn get_current_branch() -> String {
+    Cmd::new("git", ["rev-parse", "--abbrev-ref", "HEAD"])
+        .hide_stdout()
+        .run()
+        .stdout()
+        .trim()
+        .to_string()
+}
+
+fn get_pr_branch(pr: &str) -> String {
+    let output = Cmd::new(
+        "gh",
+        [
+            "pr",
+            "view",
+            pr,
+            "--json",
+            "headRefName",
+            "-q",
+            ".headRefName",
+        ],
+    )
+    .hide_stdout()
+    .run();
+    output.stdout().trim().to_string()
 }
 
 /// Print two lists of directories, one for each outcome
