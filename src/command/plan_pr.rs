@@ -31,17 +31,18 @@ fn print_output(output: Vec<(&Utf8Path, PlanOutcome)>) {
     let (no_changes, changes): (Vec<_>, Vec<_>) = output
         .into_iter()
         .partition(|(_, o)| matches!(o, PlanOutcome::NoChanges));
-    println!("No changes:");
+    println!("📃📃 Plan summary 📃📃");
+    println!("No changes detected (apply not needed):");
     for (dir, _) in no_changes {
         println!("✅ {}", dir);
     }
-    println!("Changes:");
+    println!("Changes detected (apply needed):");
     for (dir, _) in &changes {
         println!("❌ {}", dir);
     }
 
+    println!("\n📃📃 Plan output 📃📃");
     for (dir, output) in &changes {
-        println!("📃 Plan output");
         println!("👉 {}:", dir);
         if let PlanOutcome::Changes(output) = output {
             println!("{}", output);
