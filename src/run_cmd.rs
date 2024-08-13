@@ -1,7 +1,6 @@
 use std::process::{Command, ExitStatus, Stdio};
 
 use camino::Utf8PathBuf;
-use tracing::debug;
 
 #[derive(Debug)]
 pub struct CmdOutput {

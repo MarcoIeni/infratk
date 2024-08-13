@@ -100,7 +100,7 @@ fn group_terragrunt_dirs_by_account(
     dirs
 }
 
-fn plan_terraform_dirs<'a>(terraform_dirs: Vec<&'a Utf8Path>) -> Vec<(&'a Utf8Path, PlanOutcome)> {
+fn plan_terraform_dirs(terraform_dirs: Vec<&Utf8Path>) -> Vec<(&Utf8Path, PlanOutcome)> {
     let mut outcome = vec![];
     for d in terraform_dirs {
         let plan_outcome = terragrunt::are_changes_applied(d);
