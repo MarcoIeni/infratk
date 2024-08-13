@@ -2,6 +2,7 @@ use camino::Utf8Path;
 
 use crate::run_cmd::Cmd;
 
+#[derive(Debug, PartialEq)]
 pub enum PlanOutcome {
     NoChanges,
     Changes(String),

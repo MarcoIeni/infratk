@@ -2,7 +2,10 @@ use camino::{Utf8Path, Utf8PathBuf};
 use git_cmd::Repo;
 use tracing::debug;
 
-use crate::{aws, select, terragrunt};
+use crate::{
+    aws, select,
+    terragrunt::{self, PlanOutcome},
+};
 
 pub fn upgrade() {
     let repo = repo();
@@ -26,7 +29,10 @@ fn upgrade_accounts(accounts: Vec<Utf8PathBuf>) {
             // Update lockfile
             terragrunt::terragrunt_init_upgrade(&state);
             // Verify that there are no changes to apply, to ensure that the state is up-to-date
-            assert!(terragrunt::are_changes_applied(&state));
+            assert_eq!(
+                terragrunt::are_changes_applied(&state),
+                PlanOutcome::NoChanges
+            );
         }
     }
 }

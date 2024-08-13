@@ -54,7 +54,7 @@ fn plan_all_terragrunt_dirs<'a>(
         let legacy_dirs: BTreeMap<&str, Vec<&Utf8Path>> = grouped_terragrunt_dirs
             .iter()
             .filter(|(account, _)| account.starts_with("legacy"))
-            .map(|(account, dirs)| (account.as_str(), dirs.to_vec()))
+            .map(|(account, dirs)| (account.as_str(), dirs.clone()))
             .collect();
         let plan_outcome = plan_terragrunt_dirs(&legacy_dirs);
         outcome.extend(plan_outcome);
