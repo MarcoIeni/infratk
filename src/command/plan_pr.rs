@@ -11,6 +11,8 @@ use crate::{
     cmd::Cmd,
     cmd_runner::{CmdRunner, PlanOutcome},
     dir::current_dir_is_simpleinfra,
+    git::assert_current_branch_is_same_as_pr,
+    LOCKFILE,
 };
 
 pub fn plan_pr(args: PlanPr) {
@@ -35,42 +37,6 @@ pub fn plan_pr(args: PlanPr) {
         let mut clipboard = Clipboard::new().unwrap();
         clipboard.set_text(output_str).unwrap();
     }
-}
-
-fn assert_current_branch_is_same_as_pr(pr: &str) {
-    let current_branch = get_current_branch();
-    let pr_branch = get_pr_branch(pr);
-    assert_eq!(
-        current_branch, pr_branch,
-        "You are not in the same branch as the PR locally"
-    );
-}
-
-fn get_current_branch() -> String {
-    Cmd::new("git", ["rev-parse", "--abbrev-ref", "HEAD"])
-        .hide_stdout()
-        .run()
-        .stdout()
-        .trim()
-        .to_string()
-}
-
-fn get_pr_branch(pr: &str) -> String {
-    let output = Cmd::new(
-        "gh",
-        [
-            "pr",
-            "view",
-            pr,
-            "--json",
-            "headRefName",
-            "-q",
-            ".headRefName",
-        ],
-    )
-    .hide_stdout()
-    .run();
-    output.stdout().trim().to_string()
 }
 
 /// Print two lists of directories, one for each outcome
@@ -120,7 +86,7 @@ fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(&Utf8Path, PlanOutcome)
     if should_work_on_legacy {
         let legacy_tg_dirs: Vec<&Utf8Path> = grouped_terragrunt_dirs
             .get("legacy")
-            .map(|dirs| dirs.to_vec())
+            .cloned()
             .unwrap_or_default();
         let o = plan_legacy_dirs(terraform_dirs, legacy_tg_dirs);
         output.extend(o);
@@ -158,7 +124,7 @@ fn plan_sso_terragrunt_dirs<'a>(
     let non_legacy_dirs: BTreeMap<&str, Vec<&Utf8Path>> = grouped_terragrunt_dirs
         .iter()
         .filter(|(account, _)| !account.starts_with("legacy"))
-        .map(|(account, dirs)| (account.as_str(), dirs.to_vec()))
+        .map(|(account, dirs)| (account.as_str(), dirs.clone()))
         .collect();
     run_terragrunt_plan_with_sso(&non_legacy_dirs)
 }
@@ -223,7 +189,7 @@ fn get_files_changes(pr: String) -> Vec<Utf8PathBuf> {
 fn get_lock_files(files: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
     files
         .iter()
-        .filter(|file| file.file_name() == Some(".terraform.lock.hcl"))
+        .filter(|file| file.file_name() == Some(LOCKFILE))
         .cloned()
         .collect()
 }

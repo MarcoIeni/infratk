@@ -11,6 +11,8 @@ pub enum Command {
     Upgrade,
     /// Given a PR, run terragrunt/terraform plan on every module that changed.
     PlanPr(PlanPr),
+    /// Select a provider and upgrade all lockfiles.
+    UpgradeProvider,
 }
 
 #[derive(clap::Parser, Debug)]

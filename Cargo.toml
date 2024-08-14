@@ -8,6 +8,7 @@ arboard = "3.4.0"
 camino = "1.1.7"
 clap = { version = "4.5.15", features = ["derive", "env"] }
 git_cmd = "0.6.9"
+ignore = "0.4.22"
 inquire = "0.7.5"
 regex = "1.10.6"
 secrecy = "0.8.0"

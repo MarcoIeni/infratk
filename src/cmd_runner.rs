@@ -57,14 +57,14 @@ impl CmdRunner {
             if output.status().code().unwrap() == 1 {
                 plan_details.push_str(output.stderr())
             }
-            PlanOutcome::Changes(plan_details.to_string())
+            PlanOutcome::Changes(plan_details)
         }
     }
 
-    pub fn terragrunt_init_upgrade(&self, state: &Utf8Path) {
+    pub fn terragrunt_init_upgrade(&self, directory: &Utf8Path) {
         let output = Cmd::new("terragrunt", ["init", "--upgrade", "-input=false"])
             .with_env_vars(self.env_vars.clone())
-            .with_current_dir(state)
+            .with_current_dir(directory)
             .run();
         assert!(output.status().success());
     }
