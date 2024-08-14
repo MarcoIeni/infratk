@@ -2,7 +2,7 @@ use core::panic;
 use std::collections::BTreeMap;
 
 use arboard::Clipboard;
-use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
+use camino::{Utf8Path, Utf8PathBuf};
 use regex::Regex;
 
 use crate::{
@@ -12,6 +12,7 @@ use crate::{
     cmd_runner::{CmdRunner, PlanOutcome},
     dir::current_dir_is_simpleinfra,
     git::assert_current_branch_is_same_as_pr,
+    grouped_dirs::GroupedDirs,
     LOCKFILE,
 };
 
@@ -40,7 +41,7 @@ pub fn plan_pr(args: PlanPr) {
 }
 
 /// Print two lists of directories, one for each outcome
-fn format_output(output: Vec<(&Utf8Path, PlanOutcome)>) -> String {
+fn format_output(output: Vec<(Utf8PathBuf, PlanOutcome)>) -> String {
     let mut output_str = String::from("## 📃📃 Plan summary 📃📃\n");
     let (no_changes, changes): (Vec<_>, Vec<_>) = output
         .into_iter()
@@ -74,33 +75,39 @@ fn format_output(output: Vec<(&Utf8Path, PlanOutcome)>) -> String {
     output_str
 }
 
-fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(&Utf8Path, PlanOutcome)> {
-    // Plan terragrunt first because legacy authentication has precedence over aws sso.
-    let terragrunt_dirs: Vec<&Utf8Path> = get_dirs_starting_with(directories.clone(), "terragrunt");
-    let terraform_dirs: Vec<&Utf8Path> = get_dirs_starting_with(directories.clone(), "terraform");
-    let grouped_terragrunt_dirs = group_terragrunt_dirs_by_account(terragrunt_dirs);
+fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(Utf8PathBuf, PlanOutcome)> {
+    let grouped_dirs = GroupedDirs::new(directories);
 
-    let mut output = vec![];
-    let should_work_on_legacy =
-        grouped_terragrunt_dirs.contains_key("legacy") || !terraform_dirs.is_empty();
-    if should_work_on_legacy {
-        let legacy_tg_dirs: Vec<&Utf8Path> = grouped_terragrunt_dirs
-            .get("legacy")
-            .cloned()
-            .unwrap_or_default();
-        let o = plan_legacy_dirs(terraform_dirs, legacy_tg_dirs);
+    let mut output: Vec<(Utf8PathBuf, PlanOutcome)> = vec![];
+    if grouped_dirs.contains_legacy_account() {
+        let legacy_tg_dirs = grouped_dirs.legacy_terragrunt_dirs();
+        let o = plan_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs);
         output.extend(o);
     }
 
-    let o = plan_sso_terragrunt_dirs(&grouped_terragrunt_dirs);
+    let sso_terragrunt_dirs = grouped_dirs.sso_terragrunt_dirs();
+    let o = plan_terragrunt_with_sso(&sso_terragrunt_dirs);
     output.extend(o);
+
     output
 }
 
-fn plan_legacy_dirs<'a>(
-    terraform_dirs: Vec<&'a Utf8Path>,
-    terragrunt_dirs: Vec<&'a Utf8Path>,
-) -> Vec<(&'a Utf8Path, PlanOutcome)> {
+fn plan_legacy_dirs<T, U>(
+    terraform_dirs: Vec<T>,
+    terragrunt_dirs: Vec<U>,
+) -> Vec<(Utf8PathBuf, PlanOutcome)>
+where
+    T: AsRef<Utf8Path>,
+    U: AsRef<Utf8Path>,
+{
+    let terraform_dirs = terraform_dirs
+        .iter()
+        .map(|d| d.as_ref())
+        .collect::<Vec<_>>();
+    let terragrunt_dirs = terragrunt_dirs
+        .iter()
+        .map(|d| d.as_ref())
+        .collect::<Vec<_>>();
     // logout before login, to avoid issues with multiple profiles
     aws::sso_logout();
     let login_env_vars = aws::legacy_login();
@@ -109,71 +116,35 @@ fn plan_legacy_dirs<'a>(
     let mut output = vec![];
     for d in terraform_dirs {
         let o = cmd_runner.terraform_plan(d);
-        output.push((d, o));
+        output.push((d.to_path_buf(), o));
     }
     for d in terragrunt_dirs {
         let o = cmd_runner.terragrunt_plan(d);
-        output.push((d, o));
+        output.push((d.to_path_buf(), o));
     }
     output
 }
 
-fn plan_sso_terragrunt_dirs<'a>(
-    grouped_terragrunt_dirs: &BTreeMap<String, Vec<&'a Utf8Path>>,
-) -> Vec<(&'a Utf8Path, PlanOutcome)> {
-    let non_legacy_dirs: BTreeMap<&str, Vec<&Utf8Path>> = grouped_terragrunt_dirs
+fn plan_terragrunt_with_sso<T>(
+    terragrunt_sso_dirs: &BTreeMap<&str, Vec<T>>,
+) -> Vec<(Utf8PathBuf, PlanOutcome)>
+where
+    T: AsRef<Utf8Path>,
+{
+    let terragrunt_sso_dirs = terragrunt_sso_dirs
         .iter()
-        .filter(|(account, _)| !account.starts_with("legacy"))
-        .map(|(account, dirs)| (account.as_str(), dirs.clone()))
-        .collect();
-    run_terragrunt_plan_with_sso(&non_legacy_dirs)
-}
-
-fn run_terragrunt_plan_with_sso<'a>(
-    grouped_terragrunt_dirs: &BTreeMap<&str, Vec<&'a Utf8Path>>,
-) -> Vec<(&'a Utf8Path, PlanOutcome)> {
+        .map(|(k, v)| (*k, v.iter().map(|d| d.as_ref()).collect::<Vec<_>>()))
+        .collect::<BTreeMap<_, _>>();
     let mut outcome = vec![];
-    for (account, dirs) in grouped_terragrunt_dirs {
+    for (account, dirs) in terragrunt_sso_dirs {
         aws::sso_logout();
         aws::sso_login(account);
         for d in dirs {
             let plan_outcome = CmdRunner::new(BTreeMap::new()).terragrunt_plan(d);
-            outcome.push((*d, plan_outcome));
+            outcome.push((d.to_path_buf(), plan_outcome));
         }
     }
     outcome
-}
-
-fn group_terragrunt_dirs_by_account(
-    terragrunt_dirs: Vec<&Utf8Path>,
-) -> BTreeMap<String, Vec<&Utf8Path>> {
-    let mut dirs = BTreeMap::new();
-    for d in terragrunt_dirs {
-        let mut components = d.components();
-        let terragrunt_dir = components.next().unwrap();
-        assert_eq!(terragrunt_dir, Utf8Component::Normal("terragrunt"));
-        let accounts_dir = components.next().unwrap();
-        assert_eq!(accounts_dir, Utf8Component::Normal("accounts"));
-        let account = components.next().unwrap();
-        // Add the directory to the account's list of directories.
-        // If the account does not exist, create a new list with the directory.
-        // If the account exists, append the directory to the list.
-        dirs.entry(account.to_string())
-            .or_insert_with(Vec::new)
-            .push(d);
-    }
-    dirs
-}
-
-fn get_dirs_starting_with<'a>(directories: Vec<&'a Utf8Path>, name: &str) -> Vec<&'a Utf8Path> {
-    directories
-        .into_iter()
-        .filter(|&d| is_root_dir(d, name))
-        .collect()
-}
-
-fn is_root_dir(dir: &Utf8Path, name: &str) -> bool {
-    dir.components().next() == Some(Utf8Component::Normal(name))
 }
 
 fn get_files_changes(pr: String) -> Vec<Utf8PathBuf> {

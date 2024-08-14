@@ -7,6 +7,7 @@ mod dir;
 mod git;
 mod log;
 mod select;
+mod grouped_dirs;
 
 use args::CliArgs;
 use clap::Parser as _;
