@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Component, Utf8PathBuf};
 use inquire::{list_option::ListOption, validator::Validation, MultiSelect};
 
 use crate::{
@@ -27,7 +27,16 @@ fn update_lockfiles(
         if let Some(lockfiles) = providers.get(&p) {
             for l in lockfiles {
                 let directory = l.parent().unwrap();
-                CmdRunner::new(BTreeMap::new()).terragrunt_init_upgrade(directory)
+                let is_terraform = directory
+                    .components()
+                    .any(|c| c == Utf8Component::Normal("terraform"));
+                let cmd_runner = CmdRunner::new(BTreeMap::new());
+                if is_terraform {
+                    cmd_runner.terraform_init_upgrade(directory)
+                } else {
+                    cmd_runner.terragrunt_init_upgrade(directory)
+
+                }
             }
         }
     }

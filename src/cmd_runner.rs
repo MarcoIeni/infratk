@@ -21,16 +21,16 @@ impl CmdRunner {
     }
 
     pub fn terragrunt_plan(&self, state: &Utf8Path) -> PlanOutcome {
-        self.tg_or_tf_plan(state, "terragrunt")
+        self.plan(state, "terragrunt")
     }
 
     pub fn terraform_plan(&self, module: &Utf8Path) -> PlanOutcome {
-        self.tg_or_tf_plan(module, "terraform")
+        self.plan(module, "terraform")
     }
 
     /// Check if Terragrunt or Terraform plan is clean.
     /// Useful to check wheter there are some unapplied changes in the repo.
-    fn tg_or_tf_plan(&self, directory: &Utf8Path, command: &str) -> PlanOutcome {
+    fn plan(&self, directory: &Utf8Path, command: &str) -> PlanOutcome {
         // The `-detailed-exitcode` returns the following exit codes:
         // 0 - Succeeded, diff is empty (no changes)
         // 1 - Errored
@@ -62,7 +62,15 @@ impl CmdRunner {
     }
 
     pub fn terragrunt_init_upgrade(&self, directory: &Utf8Path) {
-        let output = Cmd::new("terragrunt", ["init", "--upgrade", "-input=false"])
+        self.init_upgrade(directory, "terragrunt")
+    }
+
+    pub fn terraform_init_upgrade(&self, directory: &Utf8Path) {
+        self.init_upgrade(directory, "terraform")
+    }
+
+    fn init_upgrade(&self, directory: &Utf8Path, command: &str) {
+        let output = Cmd::new(command, ["init", "--upgrade", "-input=false"])
             .with_env_vars(self.env_vars.clone())
             .with_current_dir(directory)
             .run();
