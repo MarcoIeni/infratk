@@ -75,31 +75,31 @@ fn get_pr_branch(pr: &str) -> String {
 
 /// Print two lists of directories, one for each outcome
 fn format_output(output: Vec<(&Utf8Path, PlanOutcome)>) -> String {
-    let mut output_str = String::from("📃📃 Plan summary 📃📃\n");
+    let mut output_str = String::from("## 📃📃 Plan summary 📃📃\n");
     let (no_changes, changes): (Vec<_>, Vec<_>) = output
         .into_iter()
         .partition(|(_, o)| matches!(o, PlanOutcome::NoChanges));
     if !no_changes.is_empty() {
-        output_str.push_str("No changes detected (apply not needed):\n");
+        output_str.push_str("\nNo changes detected (apply not needed):\n");
     }
     for (dir, _) in no_changes {
         output_str.push_str(&format!("✅ {}\n", dir));
     }
 
     if !changes.is_empty() {
-        output_str.push_str("Changes detected (apply needed):\n");
+        output_str.push_str("\nChanges detected (apply needed):\n");
     }
     for (dir, _) in &changes {
         output_str.push_str(&format!("❌ {}\n", dir));
     }
 
     if !changes.is_empty() {
-        output_str.push_str("\n📃📃 Plan output 📃📃\n");
+        output_str.push_str("\n## 📃📃 Plan output 📃📃\n");
     }
     for (dir, output) in &changes {
         output_str.push_str(&format!("👉 {}:\n", dir));
         if let PlanOutcome::Changes(output) = output {
-            output_str.push_str(&format!("{}\n", output));
+            output_str.push_str(&format!("\n```\n{}\n```\n", output));
         } else {
             panic!("Expected changes, got no changes");
         }
