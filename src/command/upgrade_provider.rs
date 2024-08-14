@@ -31,6 +31,7 @@ fn update_lockfiles(
                     .components()
                     .any(|c| c == Utf8Component::Normal("terraform"));
                 let cmd_runner = CmdRunner::new(BTreeMap::new());
+                // TODO: login to AWS
                 if is_terraform {
                     cmd_runner.terraform_init_upgrade(directory)
                 } else {
