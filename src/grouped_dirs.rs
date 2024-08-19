@@ -2,7 +2,10 @@ use std::collections::BTreeMap;
 
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 
+use crate::dir::{self, current_dir_is_simpleinfra};
+
 /// Directoried grouped by type and account
+#[derive(Debug)]
 pub struct GroupedDirs {
     /// Directories under the terraform directory
     terraform: Vec<Utf8PathBuf>,
@@ -15,7 +18,12 @@ impl GroupedDirs {
     where
         T: AsRef<Utf8Path>,
     {
-        let directories: Vec<&Utf8Path> = directories.iter().map(|d| d.as_ref()).collect();
+        assert!(current_dir_is_simpleinfra());
+        let directories: Vec<&Utf8Path> = directories
+            .iter()
+            .map(|d| d.as_ref().strip_prefix(dir::current_dir()).unwrap())
+            .collect();
+
         let terragrunt_dirs: Vec<&Utf8Path> =
             get_dirs_starting_with(directories.clone(), "terragrunt");
         let terraform_dirs: Vec<&Utf8Path> =
