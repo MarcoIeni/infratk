@@ -11,7 +11,11 @@ pub struct GroupedDirs {
 }
 
 impl GroupedDirs {
-    pub fn new(directories: Vec<&Utf8Path>) -> Self {
+    pub fn new<T>(directories: Vec<T>) -> Self
+    where
+        T: AsRef<Utf8Path>,
+    {
+        let directories: Vec<&Utf8Path> = directories.iter().map(|d| d.as_ref()).collect();
         let terragrunt_dirs: Vec<&Utf8Path> =
             get_dirs_starting_with(directories.clone(), "terragrunt");
         let terraform_dirs: Vec<&Utf8Path> =
