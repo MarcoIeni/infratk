@@ -70,10 +70,9 @@ impl CmdRunner {
     }
 
     fn init_upgrade(&self, directory: &Utf8Path, command: &str) {
-        let output = Cmd::new(command, ["init", "--upgrade", "-input=false"])
+        Cmd::new(command, ["init", "--upgrade", "-input=false"])
             .with_env_vars(self.env_vars.clone())
             .with_current_dir(directory)
             .run();
-        assert!(output.status().success());
     }
 }
