@@ -21,7 +21,14 @@ impl GroupedDirs {
         assert!(current_dir_is_simpleinfra());
         let directories: Vec<&Utf8Path> = directories
             .iter()
-            .map(|d| d.as_ref().strip_prefix(dir::current_dir()).unwrap())
+            .map(|d| {
+                let dir = d.as_ref();
+                if dir.is_absolute() {
+                    dir.strip_prefix(dir::current_dir()).unwrap()
+                } else {
+                    dir
+                }
+            })
             .collect();
 
         let terragrunt_dirs: Vec<&Utf8Path> =
