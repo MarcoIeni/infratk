@@ -2,35 +2,35 @@ use std::collections::BTreeMap;
 
 use camino::{Utf8Path, Utf8PathBuf};
 use inquire::{list_option::ListOption, validator::Validation, MultiSelect};
+use semver::Version;
 
 use crate::{
     aws,
     cmd_runner::CmdRunner,
     dir::{current_dir, current_dir_is_simpleinfra},
-    grouped_dirs, LOCKFILE,
+    grouped_dirs, provider, LOCKFILE,
 };
 
-pub fn upgrade_provider() {
+pub async fn upgrade_provider() {
     assert!(current_dir_is_simpleinfra());
     let lockfiles = get_all_lockfiles();
     let providers = get_all_providers(&lockfiles);
-    let providers_list = providers.keys().cloned().collect();
+    let outdated_providers = provider::outdated_providers(providers).await.unwrap();
+    println!("\nOutdated providers: {outdated_providers:#?}");
+    let providers_list = outdated_providers.keys().cloned().collect();
     let selected_providers = select_providers(providers_list);
 
-    update_lockfiles(&providers, selected_providers);
+    update_lockfiles(&outdated_providers, selected_providers);
 }
 
-fn update_lockfiles(
-    providers: &BTreeMap<String, Vec<Utf8PathBuf>>,
-    selected_providers: Vec<String>,
-) {
+fn update_lockfiles(providers: &BTreeMap<String, Vec<Provider>>, selected_providers: Vec<String>) {
     // Filter out the providers that were not selected
     let providers = providers
         .iter()
         .filter(|(k, _)| selected_providers.contains(k));
     let all_dirs: Vec<&Utf8Path> = providers
         .flat_map(|(_, v)| v.iter())
-        .map(|l| l.parent().unwrap())
+        .map(|p| p.lockfile.parent().unwrap())
         .collect();
     let grouped_dirs = grouped_dirs::GroupedDirs::new(all_dirs);
 
@@ -101,21 +101,38 @@ pub fn select_providers(providers: Vec<String>) -> Vec<String> {
     selected.into_iter().collect()
 }
 
+#[derive(Debug)]
+pub struct Provider {
+    pub lockfile: Utf8PathBuf,
+    pub version: Version,
+}
+
 /// Get all providers from all lockfiles.
 /// The result is a map where the key is the provider name and the value is the
 /// list of lockfiles that use that provider.
-pub fn get_all_providers(lockfiles: &[Utf8PathBuf]) -> BTreeMap<String, Vec<Utf8PathBuf>> {
+pub fn get_all_providers(lockfiles: &[Utf8PathBuf]) -> BTreeMap<String, Vec<Provider>> {
     let mut providers = BTreeMap::new();
     for lockfile in lockfiles {
         let content = std::fs::read_to_string(lockfile).expect("could not read lockfile");
-        let lines = content.lines();
-        for line in lines {
+        let mut lines = content.lines();
+        while let Some(line) = lines.next() {
             if line.starts_with("provider") {
-                let provider = line.split_whitespace().nth(1).unwrap().trim_matches('"');
-                providers
-                    .entry(provider.to_string())
-                    .or_insert_with(Vec::new)
-                    .push(lockfile.clone());
+                let provider_name = line.split_whitespace().nth(1).unwrap().trim_matches('"');
+                if let Some(version_line) = lines.next() {
+                    let version = version_line
+                        .split_whitespace()
+                        .nth(2)
+                        .unwrap()
+                        .trim_matches('"');
+                    let provider = Provider {
+                        lockfile: lockfile.clone(),
+                        version: Version::parse(version).unwrap(),
+                    };
+                    providers
+                        .entry(provider_name.to_string())
+                        .or_insert_with(Vec::new)
+                        .push(provider);
+                }
             }
         }
     }

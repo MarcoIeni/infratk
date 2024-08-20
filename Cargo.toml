@@ -6,12 +6,18 @@ edition = "2021"
 [dependencies]
 arboard = "3.4.0"
 camino = "1.1.7"
-clap = { version = "4.5.15", features = ["derive", "env"] }
-git_cmd = "0.6.9"
+clap = { version = "4.5.16", features = ["derive", "env"] }
+git_cmd = "0.6.11"
 ignore = "0.4.22"
 inquire = "0.7.5"
 regex = "1.10.6"
+reqwest = { version = "0.12.7", features = ["json"] }
 secrecy = "0.8.0"
 tracing = "0.1.40"
 tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+serde = { version = "1.0.208", features = ["derive"] }
+serde_json = "1.0.68"
+anyhow = "1.0.86"
+tokio = { version = "1.16.1", features = ["macros", "rt-multi-thread"] }
+semver = "1.0.23"
