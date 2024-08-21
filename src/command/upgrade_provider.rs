@@ -3,11 +3,12 @@ use std::collections::BTreeMap;
 use camino::{Utf8Path, Utf8PathBuf};
 use inquire::{list_option::ListOption, validator::Validation, MultiSelect};
 use semver::Version;
+use std::fmt;
 
 use crate::{
     aws,
     cmd_runner::CmdRunner,
-    dir::{current_dir, current_dir_is_simpleinfra},
+    dir::{self, current_dir, current_dir_is_simpleinfra},
     grouped_dirs, provider, LOCKFILE,
 };
 
@@ -16,7 +17,7 @@ pub async fn upgrade_provider() {
     let lockfiles = get_all_lockfiles();
     let providers = get_all_providers(&lockfiles);
     let outdated_providers = provider::outdated_providers(providers).await.unwrap();
-    println!("\nOutdated providers: {outdated_providers:#?}");
+    println!("\nOutdated providers: {outdated_providers}");
     let providers_list = outdated_providers.providers.keys().cloned().collect();
     let selected_providers = select_providers(providers_list);
 
@@ -119,10 +120,32 @@ pub struct Providers {
     pub providers: BTreeMap<String, ProviderVersions>,
 }
 
+impl fmt::Display for Providers {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (name, versions) in &self.providers {
+            writeln!(f, "- {name}:{versions}")?;
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ProviderVersions {
     /// <version> -> <lockfile where the version is present>
     pub versions: BTreeMap<Version, Vec<Utf8PathBuf>>,
+}
+
+impl fmt::Display for ProviderVersions {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for (version, lockfiles) in &self.versions {
+            let lockfiles_fmt = lockfiles
+                .iter()
+                .map(|l| l.strip_prefix(dir::current_dir()).unwrap())
+                .collect::<Vec<_>>();
+            writeln!(f, "\n  - {version} -> {lockfiles_fmt:?}")?;
+        }
+        Ok(())
+    }
 }
 
 /// Get all providers from all lockfiles.
