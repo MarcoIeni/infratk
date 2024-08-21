@@ -17,21 +17,26 @@ pub async fn upgrade_provider() {
     let providers = get_all_providers(&lockfiles);
     let outdated_providers = provider::outdated_providers(providers).await.unwrap();
     println!("\nOutdated providers: {outdated_providers:#?}");
-    let providers_list = outdated_providers.keys().cloned().collect();
+    let providers_list = outdated_providers.providers.keys().cloned().collect();
     let selected_providers = select_providers(providers_list);
 
     update_lockfiles(&outdated_providers, selected_providers);
 }
 
-fn update_lockfiles(providers: &BTreeMap<String, Vec<Provider>>, selected_providers: Vec<String>) {
+fn update_lockfiles(providers: &Providers, selected_providers: Vec<String>) {
     // Filter out the providers that were not selected
-    let providers = providers
+    let filtered_providers = providers
+        .providers
         .iter()
-        .filter(|(k, _)| selected_providers.contains(k));
-    let all_dirs: Vec<&Utf8Path> = providers
-        .flat_map(|(_, v)| v.iter())
-        .map(|p| p.lockfile.parent().unwrap())
+        .filter(|(k, _)| selected_providers.contains(k))
+        .collect::<BTreeMap<_, _>>();
+
+    let all_dirs: Vec<Utf8PathBuf> = filtered_providers
+        .values()
+        .flat_map(|v| v.versions.values())
+        .flat_map(|paths| get_parents(paths.clone()))
         .collect();
+
     let grouped_dirs = grouped_dirs::GroupedDirs::new(all_dirs);
 
     if grouped_dirs.contains_legacy_account() {
@@ -41,6 +46,13 @@ fn update_lockfiles(providers: &BTreeMap<String, Vec<Provider>>, selected_provid
 
     let sso_terragrunt_dirs = grouped_dirs.sso_terragrunt_dirs();
     upgrade_terragrunt_with_sso(&sso_terragrunt_dirs);
+}
+
+fn get_parents(paths: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
+    paths
+        .iter()
+        .map(|p| p.parent().unwrap().to_path_buf())
+        .collect()
 }
 
 fn upgrade_legacy_dirs<T, U>(terraform_dirs: Vec<T>, terragrunt_dirs: Vec<U>)
@@ -101,42 +113,57 @@ pub fn select_providers(providers: Vec<String>) -> Vec<String> {
     selected.into_iter().collect()
 }
 
-#[derive(Debug)]
-pub struct Provider {
-    pub lockfile: Utf8PathBuf,
-    pub version: Version,
+#[derive(Debug, Clone)]
+pub struct Providers {
+    /// <provider name> -> <provider versions>
+    pub providers: BTreeMap<String, ProviderVersions>,
+}
+
+#[derive(Debug, Clone)]
+pub struct ProviderVersions {
+    /// <version> -> <lockfile where the version is present>
+    pub versions: BTreeMap<Version, Vec<Utf8PathBuf>>,
 }
 
 /// Get all providers from all lockfiles.
 /// The result is a map where the key is the provider name and the value is the
 /// list of lockfiles that use that provider.
-pub fn get_all_providers(lockfiles: &[Utf8PathBuf]) -> BTreeMap<String, Vec<Provider>> {
+pub fn get_all_providers(lockfiles: &[Utf8PathBuf]) -> Providers {
     let mut providers = BTreeMap::new();
     for lockfile in lockfiles {
         let content = std::fs::read_to_string(lockfile).expect("could not read lockfile");
         let mut lines = content.lines();
         while let Some(line) = lines.next() {
             if line.starts_with("provider") {
-                let provider_name = line.split_whitespace().nth(1).unwrap().trim_matches('"');
+                let provider_name = line
+                    .split_whitespace()
+                    .nth(1)
+                    .unwrap()
+                    .trim_matches('"')
+                    .strip_prefix("registry.terraform.io/")
+                    .expect("invalid provider name")
+                    .to_string();
                 if let Some(version_line) = lines.next() {
                     let version = version_line
                         .split_whitespace()
                         .nth(2)
                         .unwrap()
                         .trim_matches('"');
-                    let provider = Provider {
-                        lockfile: lockfile.clone(),
-                        version: Version::parse(version).unwrap(),
-                    };
+                    let version = Version::parse(version).unwrap();
                     providers
                         .entry(provider_name.to_string())
+                        .or_insert_with(|| ProviderVersions {
+                            versions: BTreeMap::new(),
+                        })
+                        .versions
+                        .entry(version)
                         .or_insert_with(Vec::new)
-                        .push(provider);
+                        .push(lockfile.clone());
                 }
             }
         }
     }
-    providers
+    Providers { providers }
 }
 
 fn get_all_lockfiles() -> Vec<Utf8PathBuf> {

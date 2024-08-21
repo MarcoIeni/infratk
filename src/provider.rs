@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use semver::Version;
 
-use crate::command::upgrade_provider::Provider;
+use crate::command::upgrade_provider::{ProviderVersions, Providers};
 
 async fn get_latest_version(provider: &str) -> anyhow::Result<Version> {
     #[derive(serde::Deserialize)]
@@ -17,24 +17,27 @@ async fn get_latest_version(provider: &str) -> anyhow::Result<Version> {
     Ok(version)
 }
 
-pub async fn outdated_providers(
-    providers: BTreeMap<String, Vec<Provider>>,
-) -> anyhow::Result<BTreeMap<String, Vec<Provider>>> {
+pub async fn outdated_providers(providers: Providers) -> anyhow::Result<Providers> {
     let mut outdated = BTreeMap::new();
-    for (provider_name, providers) in providers {
-        let provider_name = provider_name
-            .strip_prefix("registry.terraform.io/")
-            .expect("invalid provider name")
-            .to_string();
-        println!("Checking latest version for provider: {}", provider_name);
+    for (provider_name, provider_versions) in providers.providers {
         let latest_version = get_latest_version(&provider_name).await?;
-        let outdated_lockfiles: Vec<Provider> = providers
-            .into_iter()
-            .filter(|p| p.version != latest_version)
-            .collect();
-        if !outdated_lockfiles.is_empty() {
-            outdated.insert(provider_name, outdated_lockfiles);
+        println!("Latest version for provider `{provider_name}`: {latest_version}");
+        let mut outdated_versions = BTreeMap::new();
+        for (version, lockfiles) in provider_versions.versions {
+            if version != latest_version {
+                outdated_versions.insert(version.clone(), lockfiles);
+            }
+        }
+        if !outdated_versions.is_empty() {
+            outdated.insert(
+                provider_name,
+                ProviderVersions {
+                    versions: outdated_versions,
+                },
+            );
         }
     }
-    Ok(outdated)
+    Ok(Providers {
+        providers: outdated,
+    })
 }
