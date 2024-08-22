@@ -7,7 +7,8 @@ const CONFIG_FILE: &str = "config.toml";
 #[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
-    pub legacy_otp: Option<String>,
+    /// ITEM ID for 1Password aws legacy account
+    pub op_legacy_item_id: Option<String>,
 }
 
 /// Create config dir if it doesn't exist.
