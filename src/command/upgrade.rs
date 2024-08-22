@@ -1,14 +1,16 @@
 use camino::{Utf8Path, Utf8PathBuf};
-use git_cmd::Repo;
 use tracing::debug;
 
 use crate::{
-    aws, cmd_runner::{CmdRunner, PlanOutcome}, config::Config, dir, select
+    aws,
+    cmd_runner::{CmdRunner, PlanOutcome},
+    config::Config,
+    git, select,
 };
 
 pub fn upgrade(config: &Config) {
-    let repo = repo();
-    let git_root = git_root(&repo);
+    let repo = git::repo();
+    let git_root = git::git_root(&repo);
     let tg_accounts = git_root.join("terragrunt").join("accounts");
     let accounts = list_directories_at_path(&tg_accounts);
     let selected_accounts = select::select_accounts(accounts);
@@ -47,14 +49,4 @@ fn list_directories_at_path(path: &Utf8Path) -> Vec<Utf8PathBuf> {
         }
     }
     children_dirs
-}
-
-fn repo() -> Repo {
-    let current_dir = dir::current_dir();
-    git_cmd::Repo::new(current_dir).unwrap()
-}
-
-fn git_root(repo: &Repo) -> camino::Utf8PathBuf {
-    let output = repo.git(&["rev-parse", "--show-toplevel"]).unwrap();
-    output.into()
 }

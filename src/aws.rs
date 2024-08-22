@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use secrecy::SecretString;
 
-use crate::{cmd::Cmd, config::Config};
+use crate::{cmd::Cmd, config::Config, git};
 
 /// Returns a map of environment variables that you need to use to authenticate with the account.
 #[must_use]
@@ -18,9 +18,11 @@ pub fn login(account_dir: &str, config: &Config) -> BTreeMap<String, SecretStrin
 
 /// Returns a map of environment variables that can be used to authenticate with the legacy account.
 pub fn legacy_login(op_legacy_item_id: Option<&str>) -> BTreeMap<String, SecretString> {
+    let repo = git::repo();
+    let git_root = git::git_root(&repo);
     let mut env_vars = BTreeMap::new();
     let mut cred_cmd = Cmd::new("python3", ["./aws-creds.py"]);
-    cred_cmd.hide_stdout();
+    cred_cmd.hide_stdout().with_current_dir(git_root);
     if let Some(op_legacy_item_id) = op_legacy_item_id {
         let totp_code_output = Cmd::new("op", ["item", "get", op_legacy_item_id, "--otp"]).run();
         assert!(totp_code_output.status().success());

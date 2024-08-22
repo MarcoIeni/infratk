@@ -1,4 +1,6 @@
-use crate::cmd::Cmd;
+use git_cmd::Repo;
+
+use crate::{cmd::Cmd, dir};
 
 pub fn assert_current_branch_is_same_as_pr(pr: &str) {
     let current_branch = get_current_branch();
@@ -34,4 +36,14 @@ fn get_pr_branch(pr: &str) -> String {
     .hide_stdout()
     .run();
     output.stdout().trim().to_string()
+}
+
+pub fn repo() -> Repo {
+    let current_dir = dir::current_dir();
+    git_cmd::Repo::new(current_dir).unwrap()
+}
+
+pub fn git_root(repo: &Repo) -> camino::Utf8PathBuf {
+    let output = repo.git(&["rev-parse", "--show-toplevel"]).unwrap();
+    output.into()
 }
