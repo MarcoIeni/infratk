@@ -8,11 +8,12 @@ use std::fmt;
 use crate::{
     aws,
     cmd_runner::CmdRunner,
+    config::Config,
     dir::{self, current_dir, current_dir_is_simpleinfra},
     grouped_dirs, provider, LOCKFILE,
 };
 
-pub async fn upgrade_provider() {
+pub async fn upgrade_provider(config: &Config) {
     assert!(current_dir_is_simpleinfra());
     let lockfiles = get_all_lockfiles();
     let providers = get_all_providers(&lockfiles);
@@ -21,10 +22,10 @@ pub async fn upgrade_provider() {
     let providers_list = outdated_providers.providers.keys().cloned().collect();
     let selected_providers = select_providers(providers_list);
 
-    update_lockfiles(&outdated_providers, selected_providers);
+    update_lockfiles(&outdated_providers, selected_providers, config);
 }
 
-fn update_lockfiles(providers: &Providers, selected_providers: Vec<String>) {
+fn update_lockfiles(providers: &Providers, selected_providers: Vec<String>, config: &Config) {
     // Filter out the providers that were not selected
     let filtered_providers = providers
         .providers
@@ -42,7 +43,7 @@ fn update_lockfiles(providers: &Providers, selected_providers: Vec<String>) {
 
     if grouped_dirs.contains_legacy_account() {
         let legacy_tg_dirs = grouped_dirs.legacy_terragrunt_dirs();
-        upgrade_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs);
+        upgrade_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs, config);
     }
 
     let sso_terragrunt_dirs = grouped_dirs.sso_terragrunt_dirs();
@@ -56,7 +57,7 @@ fn get_parents(paths: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
         .collect()
 }
 
-fn upgrade_legacy_dirs<T, U>(terraform_dirs: Vec<T>, terragrunt_dirs: Vec<U>)
+fn upgrade_legacy_dirs<T, U>(terraform_dirs: Vec<T>, terragrunt_dirs: Vec<U>, config: &Config)
 where
     T: AsRef<Utf8Path>,
     U: AsRef<Utf8Path>,
@@ -71,7 +72,7 @@ where
         .collect::<Vec<_>>();
     // logout before login, to avoid issues with multiple profiles
     aws::sso_logout();
-    let login_env_vars = aws::legacy_login();
+    let login_env_vars = aws::legacy_login(config.op_legacy_item_id.as_deref());
     let cmd_runner = CmdRunner::new(login_env_vars);
 
     for d in terraform_dirs {

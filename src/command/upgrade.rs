@@ -3,26 +3,24 @@ use git_cmd::Repo;
 use tracing::debug;
 
 use crate::{
-    aws,
-    cmd_runner::{CmdRunner, PlanOutcome},
-    dir, select,
+    aws, cmd_runner::{CmdRunner, PlanOutcome}, config::Config, dir, select
 };
 
-pub fn upgrade() {
+pub fn upgrade(config: &Config) {
     let repo = repo();
     let git_root = git_root(&repo);
     let tg_accounts = git_root.join("terragrunt").join("accounts");
     let accounts = list_directories_at_path(&tg_accounts);
     let selected_accounts = select::select_accounts(accounts);
     println!("Selected accounts: {:?}", selected_accounts);
-    upgrade_accounts(selected_accounts);
+    upgrade_accounts(selected_accounts, config);
 }
 
-fn upgrade_accounts(accounts: Vec<Utf8PathBuf>) {
+fn upgrade_accounts(accounts: Vec<Utf8PathBuf>, config: &Config) {
     for account in accounts {
         // logout before login, to avoid issues with multiple profiles
         aws::sso_logout();
-        let env_vars = aws::login(account.file_name().unwrap());
+        let env_vars = aws::login(account.file_name().unwrap(), config);
         let cmd_runner = CmdRunner::new(env_vars);
         let states = list_directories_at_path(&account);
         let selected_states = select::select_states(states);

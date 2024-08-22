@@ -20,10 +20,13 @@ const LOCKFILE: &str = ".terraform.lock.hcl";
 async fn main() {
     log::init(true);
     let args = CliArgs::parse();
+    let config = config::parse_config().unwrap();
     match args.command {
-        args::Command::Upgrade => command::upgrade::upgrade(),
-        args::Command::PlanPr(args) => command::plan_pr::plan_pr(args),
-        args::Command::UpgradeProvider => command::upgrade_provider::upgrade_provider().await,
+        args::Command::Upgrade => command::upgrade::upgrade(&config),
+        args::Command::PlanPr(args) => command::plan_pr::plan_pr(args, &config),
+        args::Command::UpgradeProvider => {
+            command::upgrade_provider::upgrade_provider(&config).await
+        }
         args::Command::Config => command::config_cmd::create_default_config(),
     }
 }

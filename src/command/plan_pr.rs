@@ -10,13 +10,14 @@ use crate::{
     aws,
     cmd::Cmd,
     cmd_runner::{CmdRunner, PlanOutcome},
+    config::Config,
     dir::current_dir_is_simpleinfra,
     git::assert_current_branch_is_same_as_pr,
     grouped_dirs::GroupedDirs,
     LOCKFILE,
 };
 
-pub fn plan_pr(args: PlanPr) {
+pub fn plan_pr(args: PlanPr, config: &Config) {
     assert!(current_dir_is_simpleinfra());
     assert_current_branch_is_same_as_pr(&args.pr);
     let files_changed = get_files_changes(args.pr);
@@ -27,7 +28,7 @@ pub fn plan_pr(args: PlanPr) {
         .iter()
         .map(|file| file.parent().unwrap())
         .collect();
-    let output = plan_directories(directories);
+    let output = plan_directories(directories, config);
     let output_str = format_output(output);
     println!("{output_str}");
     if args.clipboard {
@@ -75,13 +76,16 @@ fn format_output(output: Vec<(Utf8PathBuf, PlanOutcome)>) -> String {
     output_str
 }
 
-fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(Utf8PathBuf, PlanOutcome)> {
+fn plan_directories(
+    directories: Vec<&Utf8Path>,
+    config: &Config,
+) -> Vec<(Utf8PathBuf, PlanOutcome)> {
     let grouped_dirs = GroupedDirs::new(directories);
 
     let mut output: Vec<(Utf8PathBuf, PlanOutcome)> = vec![];
     if grouped_dirs.contains_legacy_account() {
         let legacy_tg_dirs = grouped_dirs.legacy_terragrunt_dirs();
-        let o = plan_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs);
+        let o = plan_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs, config);
         output.extend(o);
     }
 
@@ -95,6 +99,7 @@ fn plan_directories(directories: Vec<&Utf8Path>) -> Vec<(Utf8PathBuf, PlanOutcom
 fn plan_legacy_dirs<T, U>(
     terraform_dirs: Vec<T>,
     terragrunt_dirs: Vec<U>,
+    config: &Config,
 ) -> Vec<(Utf8PathBuf, PlanOutcome)>
 where
     T: AsRef<Utf8Path>,
@@ -110,7 +115,7 @@ where
         .collect::<Vec<_>>();
     // logout before login, to avoid issues with multiple profiles
     aws::sso_logout();
-    let login_env_vars = aws::legacy_login();
+    let login_env_vars = aws::legacy_login(config.op_legacy_item_id.as_deref());
     let cmd_runner = CmdRunner::new(login_env_vars);
 
     let mut output = vec![];

@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 
 const CONFIG_FILE: &str = "config.toml";
@@ -34,13 +35,19 @@ pub fn config_file(config_dir: &Path) -> PathBuf {
     config_dir.join(CONFIG_FILE)
 }
 
-pub fn parse_config() -> Config {
+pub fn parse_config() -> anyhow::Result<Config> {
     let infratk_dir = create_config_dir();
     let config_file = config_file(&infratk_dir);
-    if config_file.exists() {
-        let content = fs_err::read_to_string(&config_file).unwrap();
-        toml::from_str(&content).unwrap()
+    get_config(&config_file)
+        .with_context(|| format!("Failed to parse config file: {config_file:?}"))
+}
+
+fn get_config(config_file: &Path) -> anyhow::Result<Config> {
+    let config = if config_file.exists() {
+        let content = fs_err::read_to_string(&config_file)?;
+        toml::from_str(&content)?
     } else {
         Config::default()
-    }
+    };
+    Ok(config)
 }
