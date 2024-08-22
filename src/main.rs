@@ -29,5 +29,6 @@ async fn main() {
         }
         args::Command::Config => command::config_cmd::create_default_config(),
         args::Command::LegacyLogin => command::legacy_login::login_to_legacy_aws_account(&config),
+        args::Command::Init(args) => command::init::run_init(&config, args),
     }
 }

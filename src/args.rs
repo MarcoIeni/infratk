@@ -21,6 +21,13 @@ pub enum Command {
     /// TODO: Doesn't work yet because it doesn't export the env vars.
     #[command(visible_alias = "ll")]
     LegacyLogin,
+    /// Run terragrunt or terraform init (depending on the directory)
+    Init(Init),
+}
+
+#[derive(clap::Parser, Debug)]
+pub struct Init {
+    args: Vec<String>,
 }
 
 #[derive(clap::Parser, Debug)]
