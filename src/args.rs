@@ -18,6 +18,7 @@ pub enum Command {
     /// `op item list`.
     Config,
     /// Login to the AWS legacy account.
+    /// TODO: Doesn't work yet because it doesn't export the env vars.
     #[command(visible_alias = "ll")]
     LegacyLogin,
 }
