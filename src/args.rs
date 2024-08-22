@@ -13,6 +13,10 @@ pub enum Command {
     PlanPr(PlanPr),
     /// Select a provider and upgrade all lockfiles.
     UpgradeProvider,
+    /// Create default configuration and print its path.
+    /// If you are using 1Password, you can get an ITEM_ID by running
+    /// `op item list`.
+    Config,
 }
 
 #[derive(clap::Parser, Debug)]

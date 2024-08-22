@@ -3,12 +3,13 @@ mod aws;
 mod cmd;
 mod cmd_runner;
 mod command;
+mod config;
 mod dir;
 mod git;
-mod log;
-mod select;
 mod grouped_dirs;
+mod log;
 mod provider;
+mod select;
 
 use args::CliArgs;
 use clap::Parser as _;
@@ -17,11 +18,12 @@ const LOCKFILE: &str = ".terraform.lock.hcl";
 
 #[tokio::main]
 async fn main() {
-    let args = CliArgs::parse();
     log::init(true);
+    let args = CliArgs::parse();
     match args.command {
         args::Command::Upgrade => command::upgrade::upgrade(),
         args::Command::PlanPr(args) => command::plan_pr::plan_pr(args),
         args::Command::UpgradeProvider => command::upgrade_provider::upgrade_provider().await,
+        args::Command::Config => command::config_cmd::create_default_config(),
     }
 }
