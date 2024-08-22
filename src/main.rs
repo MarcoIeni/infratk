@@ -28,5 +28,6 @@ async fn main() {
             command::upgrade_provider::upgrade_provider(&config).await
         }
         args::Command::Config => command::config_cmd::create_default_config(),
+        args::Command::LegacyLogin => command::legacy_login::login_to_legacy_aws_account(&config),
     }
 }

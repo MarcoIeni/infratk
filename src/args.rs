@@ -17,6 +17,9 @@ pub enum Command {
     /// If you are using 1Password, you can get an ITEM_ID by running
     /// `op item list`.
     Config,
+    /// Login to the AWS legacy account.
+    #[command(visible_alias = "ll")]
+    LegacyLogin,
 }
 
 #[derive(clap::Parser, Debug)]
