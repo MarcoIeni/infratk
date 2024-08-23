@@ -10,6 +10,7 @@ clap = { version = "4.5.16", features = ["derive", "env"] }
 git_cmd = "0.6.11"
 ignore = "0.4.22"
 inquire = "0.7.5"
+petgraph = "0.6.5"
 regex = "1.10.6"
 reqwest = { version = "0.12.7", features = ["json"] }
 secrecy = "0.8.0"

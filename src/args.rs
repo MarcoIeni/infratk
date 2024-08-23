@@ -21,6 +21,8 @@ pub enum Command {
     /// TODO: Doesn't work yet because it doesn't export the env vars.
     #[command(visible_alias = "ll")]
     LegacyLogin,
+    /// Get the graph of the terraform modules to see how they depend on each other.
+    Graph,
 }
 
 #[derive(clap::Parser, Debug)]
