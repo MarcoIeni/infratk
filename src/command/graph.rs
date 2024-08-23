@@ -15,7 +15,6 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
     let mut graph: Graph<Utf8PathBuf, i32> = Graph::new();
     // Collection of `file` - `graph index`.
     let mut indices = HashMap::<Utf8PathBuf, _>::new();
-    //let mut graph = Graph::<Utf8PathBuf, Utf8PathBuf>::new();
     let files = get_all_files_tf_and_hcl_files();
     for f in files {
         let f_parent = f.parent().unwrap().to_path_buf();
