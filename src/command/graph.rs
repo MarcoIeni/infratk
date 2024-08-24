@@ -1,8 +1,9 @@
 use std::collections::HashMap;
 
-use camino::Utf8PathBuf;
+use camino::{Utf8Path, Utf8PathBuf};
 use petgraph::{
     dot::{self, Dot},
+    graph::NodeIndex,
     Graph,
 };
 
@@ -11,7 +12,7 @@ use crate::dir;
 pub fn print_graph() {
     let graph = get_graph();
 
-    // Output the tree to `graphviz` `DOT` format
+    //Output the tree to `graphviz` format
     println!(
         "{:?}",
         Dot::with_config(&graph, &[dot::Config::EdgeNoLabel])
@@ -38,7 +39,7 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
         let dependencies = get_dependencies(&f);
         for d in dependencies {
             let d_parent = get_parent(&d);
-            let existing_index = indices.get(&d_parent.to_path_buf());
+            let existing_index = indices.get(&d_parent);
 
             if let Some(&existing_index) = existing_index {
                 graph.add_edge(node_index, existing_index, 0);
@@ -63,22 +64,29 @@ fn add_node(
 
 /// Get the dependencies of a file
 /// Dependencies are anything in the file like `source = "path"` or `config_path = "path"`.
-fn get_dependencies(file: &Utf8PathBuf) -> Vec<Utf8PathBuf> {
+fn get_dependencies(file: &Utf8Path) -> Vec<Utf8PathBuf> {
     let content = std::fs::read_to_string(file).expect("could not read file");
     let mut dependencies = vec![];
     for line in content.lines() {
-        let tokens: Vec<&str> = line.split_whitespace().collect();
-        let Some(&first_token) = tokens.first() else {
-            continue;
-        };
-        if first_token != "source" || first_token != "config_path" {
-            continue;
+        if let Some(dependency) = get_dependency_from_line(line) {
+            let module_path = file.parent().unwrap().join(dependency);
+            dependencies.push(module_path);
         }
-        let dependency = tokens[2].trim_matches('"');
-        let module_path = file.parent().unwrap().join(dependency);
-        dependencies.push(module_path);
     }
     dependencies
+}
+
+fn get_dependency_from_line(line: &str) -> Option<&str> {
+    let tokens: Vec<&str> = line.split_whitespace().collect();
+    let first_token = *tokens.first()?;
+    if first_token != "source" && first_token != "config_path" {
+        return None;
+    }
+    let second_token = *tokens.get(1)?;
+    if second_token != "=" {
+        return None;
+    }
+    Some(tokens[2].trim_matches('"'))
 }
 
 /// Get all the files that might contain a dependency
@@ -103,4 +111,21 @@ pub fn get_all_files_tf_and_hcl_files() -> Vec<Utf8PathBuf> {
         }
     }
     files
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use camino_tempfile::NamedUtf8TempFile;
+
+    #[test]
+    fn dependencies_are_read() {
+        let file = NamedUtf8TempFile::new().unwrap();
+        let content = r#"
+                        source = "../aaaa"
+                "#;
+        fs_err::write(file.path(), content).unwrap();
+        let dependencies = get_dependencies(file.path());
+        assert_eq!(dependencies.len(), 1);
+    }
 }
