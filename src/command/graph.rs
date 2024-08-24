@@ -7,16 +7,21 @@ use petgraph::{
     Graph,
 };
 
-use crate::dir;
+use crate::{args::GraphArgs, clipboard, dir};
 
-pub fn print_graph() {
+pub fn print_graph(args: GraphArgs) {
     let graph = get_graph();
 
-    //Output the tree to `graphviz` format
-    println!(
+    // Get `graphviz` format
+    let output_str = format!(
         "{:?}",
         Dot::with_config(&graph, &[dot::Config::EdgeNoLabel])
     );
+    println!("{:?}", output_str);
+
+    if args.clipboard {
+        clipboard::copy_to_clipboard(output_str);
+    }
 }
 
 fn get_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
@@ -38,13 +43,12 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
             .unwrap_or_else(|| add_node(&mut graph, f_parent, &mut indices));
         let dependencies = get_dependencies(&f);
         for d in dependencies {
-            let d_parent = get_parent(&d);
-            let existing_index = indices.get(&d_parent);
+            let existing_index = indices.get(&d);
 
             if let Some(&existing_index) = existing_index {
                 graph.add_edge(node_index, existing_index, 0);
             } else {
-                let d_index = add_node(&mut graph, d_parent, &mut indices);
+                let d_index = add_node(&mut graph, d, &mut indices);
                 graph.add_edge(node_index, d_index, 0);
             }
         }

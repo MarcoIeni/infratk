@@ -1,13 +1,11 @@
 use core::panic;
 use std::collections::BTreeMap;
 
-use arboard::Clipboard;
 use camino::{Utf8Path, Utf8PathBuf};
-use regex::Regex;
 
 use crate::{
     args::PlanPr,
-    aws,
+    aws, clipboard,
     cmd::Cmd,
     cmd_runner::{CmdRunner, PlanOutcome},
     config::Config,
@@ -32,12 +30,7 @@ pub fn plan_pr(args: PlanPr, config: &Config) {
     let output_str = format_output(output);
     println!("{output_str}");
     if args.clipboard {
-        // Strip ANSI escape sequences
-        let re = Regex::new(r"\x1b\[([\x30-\x3f]*[\x20-\x2f]*[\x40-\x7e])").unwrap();
-        let output_str = re.replace_all(&output_str, "").to_string();
-
-        let mut clipboard = Clipboard::new().unwrap();
-        clipboard.set_text(output_str).unwrap();
+        clipboard::copy_to_clipboard(output_str);
     }
 }
 

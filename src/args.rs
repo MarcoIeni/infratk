@@ -22,7 +22,7 @@ pub enum Command {
     #[command(visible_alias = "ll")]
     LegacyLogin,
     /// Get the graph of the terraform modules to see how they depend on each other.
-    Graph,
+    Graph(GraphArgs),
 }
 
 #[derive(clap::Parser, Debug)]
@@ -30,6 +30,13 @@ pub struct PlanPr {
     /// PR Number OR URL OR Branch.
     pub pr: String,
     /// If true, copy the output to the clipboard.
+    #[arg(long)]
+    pub clipboard: bool,
+}
+
+#[derive(clap::Parser, Debug)]
+pub struct GraphArgs {
+    /// If true, copy the graphviz output to the clipboard.
     #[arg(long)]
     pub clipboard: bool,
 }
