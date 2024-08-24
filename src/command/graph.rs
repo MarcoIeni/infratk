@@ -43,14 +43,12 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
             .unwrap_or_else(|| add_node(&mut graph, f_parent, &mut indices));
         let dependencies = get_dependencies(&f);
         for d in dependencies {
-            let existing_index = indices.get(&d);
+            let d_index = indices
+                .get(&d)
+                .cloned()
+                .unwrap_or_else(|| add_node(&mut graph, d, &mut indices));
 
-            if let Some(&existing_index) = existing_index {
-                graph.add_edge(node_index, existing_index, 0);
-            } else {
-                let d_index = add_node(&mut graph, d, &mut indices);
-                graph.add_edge(node_index, d_index, 0);
-            }
+            graph.update_edge(node_index, d_index, 0);
         }
     }
     graph
