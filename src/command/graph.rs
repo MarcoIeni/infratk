@@ -27,12 +27,14 @@ fn get_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
 pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
     let mut graph: Graph<Utf8PathBuf, i32> = Graph::new();
     // Collection of `file` - `graph index`.
-    let mut indices = HashMap::<Utf8PathBuf, _>::new();
+    let mut indices = HashMap::<Utf8PathBuf, NodeIndex>::new();
     let files = get_all_files_tf_and_hcl_files();
     for f in files {
         let f_parent = get_parent(&f);
-        let node_index = graph.add_node(f_parent.clone());
-        indices.insert(f_parent.to_path_buf(), node_index);
+        let node_index = indices
+            .get(&f_parent)
+            .cloned()
+            .unwrap_or_else(|| add_node(&mut graph, f_parent, &mut indices));
         let dependencies = get_dependencies(&f);
         for d in dependencies {
             let d_parent = get_parent(&d);
@@ -41,13 +43,22 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
             if let Some(&existing_index) = existing_index {
                 graph.add_edge(node_index, existing_index, 0);
             } else {
-                let d_index = graph.add_node(d_parent.clone());
-                indices.insert(d_parent.to_path_buf(), d_index);
+                let d_index = add_node(&mut graph, d_parent, &mut indices);
                 graph.add_edge(node_index, d_index, 0);
             }
         }
     }
     graph
+}
+
+fn add_node(
+    graph: &mut Graph<Utf8PathBuf, i32>,
+    dir: Utf8PathBuf,
+    indices: &mut HashMap<Utf8PathBuf, NodeIndex>,
+) -> NodeIndex {
+    let node_index = graph.add_node(dir.clone());
+    indices.insert(dir.to_path_buf(), node_index);
+    node_index
 }
 
 /// Get the dependencies of a file
