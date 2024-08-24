@@ -44,7 +44,7 @@ pub fn parse_config() -> anyhow::Result<Config> {
 
 fn get_config(config_file: &Path) -> anyhow::Result<Config> {
     let config = if config_file.exists() {
-        let content = fs_err::read_to_string(&config_file)?;
+        let content = fs_err::read_to_string(config_file)?;
         toml::from_str(&content)?
     } else {
         Config::default()

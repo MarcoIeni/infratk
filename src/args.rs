@@ -14,7 +14,7 @@ pub enum Command {
     /// Select a provider and upgrade all lockfiles.
     UpgradeProvider,
     /// Create default configuration and print its path.
-    /// If you are using 1Password, you can get an ITEM_ID by running
+    /// If you are using 1Password, you can get an `ITEM_ID` by running
     /// `op item list`.
     Config,
     /// Login to the AWS legacy account.

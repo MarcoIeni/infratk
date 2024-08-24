@@ -175,7 +175,7 @@ pub fn get_all_providers(lockfiles: &[Utf8PathBuf]) -> Providers {
                         .trim_matches('"');
                     let version = Version::parse(version).unwrap();
                     providers
-                        .entry(provider_name.to_string())
+                        .entry(provider_name)
                         .or_insert_with(|| ProviderVersions {
                             versions: BTreeMap::new(),
                         })
