@@ -1,14 +1,27 @@
 use std::collections::HashMap;
 
 use camino::Utf8PathBuf;
-use petgraph::Graph;
+use petgraph::{
+    dot::{self, Dot},
+    Graph,
+};
 
 use crate::dir;
 
 pub fn print_graph() {
     let graph = get_graph();
-    // todo print graphviz
-    println!("{:?}", graph);
+
+    // Output the tree to `graphviz` `DOT` format
+    println!(
+        "{:?}",
+        Dot::with_config(&graph, &[dot::Config::EdgeNoLabel])
+    );
+}
+
+fn get_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
+    let curr_dir = dir::current_dir();
+    let parent = path.parent().unwrap();
+    parent.strip_prefix(&curr_dir).unwrap().to_path_buf()
 }
 
 pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
@@ -17,12 +30,12 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
     let mut indices = HashMap::<Utf8PathBuf, _>::new();
     let files = get_all_files_tf_and_hcl_files();
     for f in files {
-        let f_parent = f.parent().unwrap().to_path_buf();
+        let f_parent = get_parent(&f);
         let node_index = graph.add_node(f_parent.clone());
         indices.insert(f_parent.to_path_buf(), node_index);
         let dependencies = get_dependencies(&f);
         for d in dependencies {
-            let d_parent = d.parent().unwrap().to_path_buf();
+            let d_parent = get_parent(&d);
             let existing_index = indices.get(&d_parent.to_path_buf());
 
             if let Some(&existing_index) = existing_index {
