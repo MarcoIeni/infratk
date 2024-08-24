@@ -6,6 +6,7 @@ use petgraph::{
     graph::NodeIndex,
     Graph,
 };
+use tracing::warn;
 
 use crate::{args::GraphArgs, clipboard, dir};
 
@@ -25,9 +26,8 @@ pub fn print_graph(args: GraphArgs) {
 }
 
 fn get_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
-    let curr_dir = dir::current_dir();
     let parent = path.parent().unwrap();
-    parent.strip_prefix(&curr_dir).unwrap().to_path_buf()
+    dir::strip_current_dir(parent)
 }
 
 pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
@@ -74,10 +74,23 @@ fn get_dependencies(file: &Utf8Path) -> Vec<Utf8PathBuf> {
     for line in content.lines() {
         if let Some(dependency) = get_dependency_from_line(line) {
             let module_path = file.parent().unwrap().join(dependency);
-            dependencies.push(module_path);
+            let relative_path = get_relative_path(&module_path);
+            dependencies.push(relative_path);
         }
     }
     dependencies
+}
+
+fn get_relative_path(path: &Utf8Path) -> Utf8PathBuf {
+    // canonicalize to convert `a/b/../c` to `a/c`
+    let canonicalized = match path.canonicalize_utf8() {
+        Ok(c) => c,
+        Err(err) => {
+            warn!("Could not canonicalize path {path}: {err:?}");
+            path.to_path_buf()
+        }
+    };
+    dir::strip_current_dir(&canonicalized)
 }
 
 fn get_dependency_from_line(line: &str) -> Option<&str> {
