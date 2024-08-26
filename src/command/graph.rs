@@ -85,9 +85,11 @@ fn add_node(
 ) -> NodeIndex {
     let label = if let Some(outdated_packages) = outdated_packages {
         // add an emoji to the path just for the graph visualization.
-        if outdated_packages.contains(&dir) {
+        if !outdated_packages.contains(&dir) {
+            // the module is up-to-date because it's not in the outdated packages
             dir.join(" ✅")
         } else if dir.join(LOCKFILE).exists() {
+            // the module isn't up-to-date and contains a lockfile. So it needs to be updated.
             dir.join(" ❌")
         } else {
             // The module doesn't contain a lockfile, so we don't need to update it.
