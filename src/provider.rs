@@ -3,7 +3,10 @@ use std::collections::BTreeMap;
 use camino::Utf8PathBuf;
 use semver::Version;
 
-use crate::{command::upgrade_provider::{ProviderVersions, Providers}, dir, LOCKFILE};
+use crate::{
+    command::upgrade_provider::{ProviderVersions, Providers},
+    dir, LOCKFILE,
+};
 
 async fn get_latest_version(provider: &str) -> anyhow::Result<Version> {
     #[derive(serde::Deserialize)]

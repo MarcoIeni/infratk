@@ -1,5 +1,6 @@
 mod args;
 mod aws;
+mod clipboard;
 mod cmd;
 mod cmd_runner;
 mod command;
@@ -10,7 +11,6 @@ mod grouped_dirs;
 mod log;
 mod provider;
 mod select;
-mod clipboard;
 
 use args::CliArgs;
 use clap::Parser as _;
@@ -30,6 +30,6 @@ async fn main() {
         }
         args::Command::Config => command::config_cmd::create_default_config(),
         args::Command::LegacyLogin => command::legacy_login::login_to_legacy_aws_account(&config),
-        args::Command::Graph (args)=> command::graph::print_graph(args).await,
+        args::Command::Graph(args) => command::graph::print_graph(args).await,
     }
 }
