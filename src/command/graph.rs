@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 
 use camino::{Utf8Path, Utf8PathBuf};
 use petgraph::{
@@ -8,10 +8,18 @@ use petgraph::{
 };
 use tracing::warn;
 
-use crate::{args::GraphArgs, clipboard, dir};
+use crate::{args::GraphArgs, clipboard, dir, provider};
 
-pub fn print_graph(args: GraphArgs) {
-    let graph = get_graph();
+pub async fn print_graph(args: GraphArgs) {
+    assert!(dir::current_dir_is_simpleinfra());
+
+    let outdated_packages = if args.outdated {
+        Some(get_packages_with_outdated_providers().await)
+    } else {
+        None
+    };
+
+    let graph = get_graph(outdated_packages.as_ref());
 
     // Get `graphviz` format
     let output_str = format!(
@@ -25,12 +33,27 @@ pub fn print_graph(args: GraphArgs) {
     }
 }
 
+async fn get_packages_with_outdated_providers() -> BTreeSet<Utf8PathBuf> {
+    let lockfiles = provider::get_all_lockfiles();
+    let providers = provider::get_all_providers(&lockfiles);
+    let outdated_providers = provider::outdated_providers(providers).await.unwrap();
+
+    let mut outdated_packages = BTreeSet::new();
+    for (_provider, versions) in outdated_providers.providers {
+        for (_version, lockfiles) in versions.versions {
+            let parents = lockfiles.iter().map(get_parent).collect::<Vec<_>>();
+            outdated_packages.extend(parents);
+        }
+    }
+    outdated_packages
+}
+
 fn get_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
     let parent = path.parent().unwrap();
     dir::strip_current_dir(parent)
 }
 
-pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
+pub fn get_graph(outdated_packages: Option<&BTreeSet<Utf8PathBuf>>) -> Graph<Utf8PathBuf, i32> {
     let mut graph: Graph<Utf8PathBuf, i32> = Graph::new();
     // Collection of `file` - `graph index`.
     let mut indices = HashMap::<Utf8PathBuf, NodeIndex>::new();
@@ -40,13 +63,13 @@ pub fn get_graph() -> Graph<Utf8PathBuf, i32> {
         let node_index = indices
             .get(&f_parent)
             .cloned()
-            .unwrap_or_else(|| add_node(&mut graph, f_parent, &mut indices));
+            .unwrap_or_else(|| add_node(&mut graph, f_parent, &mut indices, outdated_packages));
         let dependencies = get_dependencies(&f);
         for d in dependencies {
             let d_index = indices
                 .get(&d)
                 .cloned()
-                .unwrap_or_else(|| add_node(&mut graph, d, &mut indices));
+                .unwrap_or_else(|| add_node(&mut graph, d, &mut indices, outdated_packages));
 
             graph.update_edge(node_index, d_index, 0);
         }
@@ -58,9 +81,20 @@ fn add_node(
     graph: &mut Graph<Utf8PathBuf, i32>,
     dir: Utf8PathBuf,
     indices: &mut HashMap<Utf8PathBuf, NodeIndex>,
+    outdated_packages: Option<&BTreeSet<Utf8PathBuf>>,
 ) -> NodeIndex {
-    let node_index = graph.add_node(dir.clone());
-    indices.insert(dir.to_path_buf(), node_index);
+    let label = if let Some(outdated_packages) = outdated_packages {
+        // add an emoji to the path just for the graph visualization.
+        if outdated_packages.contains(&dir) {
+            dir.join(" ✅")
+        } else {
+            dir.join(" ❌")
+        }
+    } else {
+        dir.clone()
+    };
+    let node_index = graph.add_node(label.clone());
+    indices.insert(dir, node_index);
     node_index
 }
 

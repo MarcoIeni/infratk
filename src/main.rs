@@ -30,6 +30,6 @@ async fn main() {
         }
         args::Command::Config => command::config_cmd::create_default_config(),
         args::Command::LegacyLogin => command::legacy_login::login_to_legacy_aws_account(&config),
-        args::Command::Graph (args)=> command::graph::print_graph(args),
+        args::Command::Graph (args)=> command::graph::print_graph(args).await,
     }
 }

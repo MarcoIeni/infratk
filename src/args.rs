@@ -39,4 +39,7 @@ pub struct GraphArgs {
     /// If true, copy the graphviz output to the clipboard.
     #[arg(long)]
     pub clipboard: bool,
+    /// Check for outdated providers and show them in the graph.
+    #[arg(long)]
+    pub outdated: bool,
 }
