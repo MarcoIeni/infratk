@@ -8,7 +8,7 @@ use petgraph::{
 };
 use tracing::warn;
 
-use crate::{args::GraphArgs, clipboard, dir, provider};
+use crate::{args::GraphArgs, clipboard, dir, provider, LOCKFILE};
 
 pub async fn print_graph(args: GraphArgs) {
     assert!(dir::current_dir_is_simpleinfra());
@@ -87,8 +87,11 @@ fn add_node(
         // add an emoji to the path just for the graph visualization.
         if outdated_packages.contains(&dir) {
             dir.join(" ✅")
-        } else {
+        } else if dir.join(LOCKFILE).exists() {
             dir.join(" ❌")
+        } else {
+            // The module doesn't contain a lockfile, so we don't need to update it.
+            dir.clone()
         }
     } else {
         dir.clone()
