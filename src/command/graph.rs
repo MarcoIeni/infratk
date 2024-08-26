@@ -143,12 +143,17 @@ fn get_dependency_from_line(line: &str) -> Option<&str> {
         return None;
     }
     let third_token = tokens[2].trim_matches('"');
-    if !third_token.starts_with(".") {
+    let dependency = third_token
+        .trim_start_matches("git::")
+        .split('?')
+        .next()
+        .unwrap_or(third_token);
+    if !dependency.starts_with(".") {
         // it's not a directory. E.g. it's `source  = "hashicorp/aws"`.
         return None;
     }
 
-    Some(third_token)
+    Some(dependency)
 }
 
 /// Get all the files that might contain a dependency
