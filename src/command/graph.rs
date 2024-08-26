@@ -6,7 +6,7 @@ use petgraph::{
     graph::NodeIndex,
     Graph,
 };
-use tracing::warn;
+use tracing::{debug, warn};
 
 use crate::{args::GraphArgs, clipboard, dir, provider, LOCKFILE};
 
@@ -57,7 +57,7 @@ pub fn get_graph(outdated_packages: Option<&BTreeSet<Utf8PathBuf>>) -> Graph<Utf
     let mut graph: Graph<Utf8PathBuf, i32> = Graph::new();
     // Collection of `file` - `graph index`.
     let mut indices = HashMap::<Utf8PathBuf, NodeIndex>::new();
-    let files = get_all_files_tf_and_hcl_files();
+    let files = get_all_tf_and_hcl_files();
     for f in files {
         let f_parent = get_parent(&f);
         let node_index = indices
@@ -98,6 +98,7 @@ fn add_node(
     } else {
         dir.clone()
     };
+    debug!("Adding node: {:?}", label);
     let node_index = graph.add_node(label.clone());
     indices.insert(dir, node_index);
     node_index
@@ -112,6 +113,7 @@ fn get_dependencies(file: &Utf8Path) -> Vec<Utf8PathBuf> {
         if let Some(dependency) = get_dependency_from_line(line) {
             let module_path = file.parent().unwrap().join(dependency);
             let relative_path = get_relative_path(&module_path);
+            debug!("found dependency {:?} from line {line}", relative_path);
             dependencies.push(relative_path);
         }
     }
@@ -150,7 +152,7 @@ fn get_dependency_from_line(line: &str) -> Option<&str> {
 }
 
 /// Get all the files that might contain a dependency
-pub fn get_all_files_tf_and_hcl_files() -> Vec<Utf8PathBuf> {
+pub fn get_all_tf_and_hcl_files() -> Vec<Utf8PathBuf> {
     let mut files = vec![];
     let current_dir = dir::current_dir();
     let walker = ignore::WalkBuilder::new(current_dir)
