@@ -2,7 +2,12 @@ use std::collections::BTreeMap;
 
 use camino::{Utf8Component, Utf8Path, Utf8PathBuf};
 
-use crate::dir::{self, current_dir_is_simpleinfra};
+use crate::{
+    aws,
+    cmd_runner::{CmdRunner, PlanOutcome},
+    config::Config,
+    dir::{self, current_dir_is_simpleinfra},
+};
 
 /// Directoried grouped by type and account
 #[derive(Debug)]
@@ -72,6 +77,20 @@ impl GroupedDirs {
             .map(|(account, dirs)| (account.as_str(), dirs.clone()))
             .collect()
     }
+
+    pub fn upgrade_all(&self, config: &Config) -> Vec<(Utf8PathBuf, PlanOutcome)> {
+        let mut output: Vec<(Utf8PathBuf, PlanOutcome)> = vec![];
+        if self.contains_legacy_account() {
+            let legacy_tg_dirs = self.legacy_terragrunt_dirs();
+            let plan_outcome = upgrade_legacy_dirs(self.terraform_dirs(), legacy_tg_dirs, config);
+            output.extend(plan_outcome);
+        }
+
+        let sso_terragrunt_dirs = self.sso_terragrunt_dirs();
+        let plan_outcome = upgrade_terragrunt_with_sso(&sso_terragrunt_dirs);
+        output.extend(plan_outcome);
+        output
+    }
 }
 
 fn get_dirs_starting_with<'a>(directories: Vec<&'a Utf8Path>, name: &str) -> Vec<&'a Utf8Path> {
@@ -104,4 +123,62 @@ fn group_terragrunt_dirs_by_account(
             .push(d);
     }
     dirs
+}
+
+fn upgrade_legacy_dirs<T, U>(
+    terraform_dirs: Vec<T>,
+    terragrunt_dirs: Vec<U>,
+    config: &Config,
+) -> Vec<(Utf8PathBuf, PlanOutcome)>
+where
+    T: AsRef<Utf8Path>,
+    U: AsRef<Utf8Path>,
+{
+    let terraform_dirs = terraform_dirs
+        .iter()
+        .map(|d| d.as_ref())
+        .collect::<Vec<_>>();
+    let terragrunt_dirs = terragrunt_dirs
+        .iter()
+        .map(|d| d.as_ref())
+        .collect::<Vec<_>>();
+    // logout before login, to avoid issues with multiple profiles
+    aws::sso_logout();
+    let login_env_vars = aws::legacy_login(config.op_legacy_item_id.as_deref());
+    let cmd_runner = CmdRunner::new(login_env_vars);
+
+    let mut outcome = vec![];
+    for d in terraform_dirs {
+        cmd_runner.terraform_init_upgrade(d);
+        let plan_outcome = cmd_runner.terraform_plan(d);
+        outcome.push((d.to_path_buf(), plan_outcome));
+    }
+    for d in terragrunt_dirs {
+        cmd_runner.terragrunt_init_upgrade(d);
+        let plan_outcome = cmd_runner.terragrunt_plan(d);
+        outcome.push((d.to_path_buf(), plan_outcome));
+    }
+    outcome
+}
+
+fn upgrade_terragrunt_with_sso<T>(terragrunt_sso_dirs: &BTreeMap<&str, Vec<T>>) -> Vec<(Utf8PathBuf, PlanOutcome)>
+where
+    T: AsRef<Utf8Path>,
+{
+    let mut outcome = vec![];
+    let terragrunt_sso_dirs = terragrunt_sso_dirs
+        .iter()
+        .map(|(k, v)| (*k, v.iter().map(|d| d.as_ref()).collect::<Vec<_>>()))
+        .collect::<BTreeMap<_, _>>();
+    for (account, dirs) in terragrunt_sso_dirs {
+        aws::sso_logout();
+        aws::sso_login(account);
+        let cmd_runner =CmdRunner::new(BTreeMap::new());
+        for d in dirs {
+            cmd_runner.terragrunt_init_upgrade(d);
+            let plan_outcome = cmd_runner.terragrunt_plan(d);
+            outcome.push( (d.to_path_buf(), plan_outcome));
+        }
+    }
+    outcome
 }

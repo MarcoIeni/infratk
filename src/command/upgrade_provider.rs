@@ -1,16 +1,14 @@
 use std::collections::BTreeMap;
 
-use camino::{Utf8Path, Utf8PathBuf};
+use camino::Utf8PathBuf;
 use inquire::{list_option::ListOption, validator::Validation, MultiSelect};
 use semver::Version;
 use std::fmt;
 
 use crate::{
-    aws,
-    cmd_runner::CmdRunner,
     config::Config,
     dir::{self, current_dir_is_simpleinfra},
-    grouped_dirs,
+    grouped_dirs, pretty_format,
     provider::{self, get_all_lockfiles, get_all_providers},
 };
 
@@ -42,13 +40,8 @@ fn update_lockfiles(providers: &Providers, selected_providers: Vec<String>, conf
 
     let grouped_dirs = grouped_dirs::GroupedDirs::new(all_dirs);
 
-    if grouped_dirs.contains_legacy_account() {
-        let legacy_tg_dirs = grouped_dirs.legacy_terragrunt_dirs();
-        upgrade_legacy_dirs(grouped_dirs.terraform_dirs(), legacy_tg_dirs, config);
-    }
-
-    let sso_terragrunt_dirs = grouped_dirs.sso_terragrunt_dirs();
-    upgrade_terragrunt_with_sso(&sso_terragrunt_dirs);
+    let outcome = grouped_dirs.upgrade_all(config);
+    pretty_format::format_output(outcome);
 }
 
 fn get_parents(paths: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
@@ -56,49 +49,6 @@ fn get_parents(paths: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
         .iter()
         .map(|p| p.parent().unwrap().to_path_buf())
         .collect()
-}
-
-fn upgrade_legacy_dirs<T, U>(terraform_dirs: Vec<T>, terragrunt_dirs: Vec<U>, config: &Config)
-where
-    T: AsRef<Utf8Path>,
-    U: AsRef<Utf8Path>,
-{
-    let terraform_dirs = terraform_dirs
-        .iter()
-        .map(|d| d.as_ref())
-        .collect::<Vec<_>>();
-    let terragrunt_dirs = terragrunt_dirs
-        .iter()
-        .map(|d| d.as_ref())
-        .collect::<Vec<_>>();
-    // logout before login, to avoid issues with multiple profiles
-    aws::sso_logout();
-    let login_env_vars = aws::legacy_login(config.op_legacy_item_id.as_deref());
-    let cmd_runner = CmdRunner::new(login_env_vars);
-
-    for d in terraform_dirs {
-        cmd_runner.terraform_init_upgrade(d);
-    }
-    for d in terragrunt_dirs {
-        cmd_runner.terragrunt_init_upgrade(d);
-    }
-}
-
-fn upgrade_terragrunt_with_sso<T>(terragrunt_sso_dirs: &BTreeMap<&str, Vec<T>>)
-where
-    T: AsRef<Utf8Path>,
-{
-    let terragrunt_sso_dirs = terragrunt_sso_dirs
-        .iter()
-        .map(|(k, v)| (*k, v.iter().map(|d| d.as_ref()).collect::<Vec<_>>()))
-        .collect::<BTreeMap<_, _>>();
-    for (account, dirs) in terragrunt_sso_dirs {
-        aws::sso_logout();
-        aws::sso_login(account);
-        for d in dirs {
-            CmdRunner::new(BTreeMap::new()).terragrunt_init_upgrade(d);
-        }
-    }
 }
 
 pub fn select_providers(providers: Vec<String>) -> Vec<String> {
