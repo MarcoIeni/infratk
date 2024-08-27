@@ -6,17 +6,35 @@ use crate::{
     aws, clipboard,
     cmd_runner::{CmdRunner, PlanOutcome},
     config::Config,
-    git, pretty_format, select,
+    dir, git,
+    graph::ModulesGraph,
+    grouped_dirs::GroupedDirs,
+    pretty_format, select,
 };
 
 pub fn upgrade(args: UpgradeArgs, config: &Config) {
     let repo = git::repo();
-    let git_root = git::git_root(&repo);
-    let tg_accounts = git_root.join("terragrunt").join("accounts");
-    let accounts = list_directories_at_path(&tg_accounts);
-    let selected_accounts = select::select_accounts(accounts);
-    println!("Selected accounts: {:?}", selected_accounts);
-    let plan_outcome = upgrade_accounts(selected_accounts, config);
+
+    let plan_outcome = if args.git {
+        let changed_files = repo
+            .changes_except_typechanges()
+            .unwrap()
+            .iter()
+            .map(Utf8PathBuf::from)
+            .map(|p| dir::get_stripped_parent(&p))
+            .collect::<Vec<_>>();
+        let graph = ModulesGraph::new(None);
+        let dependent_modules = graph.get_dependent_modules(&changed_files);
+        let grouped_dirs = GroupedDirs::new(dependent_modules);
+        grouped_dirs.upgrade_all(config)
+    } else {
+        let git_root = git::git_root(&repo);
+        let tg_accounts = git_root.join("terragrunt").join("accounts");
+        let accounts = list_directories_at_path(&tg_accounts);
+        let selected_accounts = select::select_accounts(accounts);
+        println!("Selected accounts: {:?}", selected_accounts);
+        upgrade_accounts(selected_accounts, config)
+    };
     let output_str = pretty_format::format_output(plan_outcome);
     println!("{output_str}");
     if args.clipboard {

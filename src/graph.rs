@@ -3,7 +3,7 @@ use std::collections::{BTreeSet, HashMap};
 use camino::{Utf8Path, Utf8PathBuf};
 use tracing::{debug, warn};
 
-use petgraph::{graph::NodeIndex, Graph};
+use petgraph::{graph::NodeIndex, visit::EdgeRef as _, Graph};
 
 use crate::{dir, LOCKFILE};
 
@@ -35,6 +35,35 @@ impl ModulesGraph {
             }
         }
         Self { graph }
+    }
+    pub fn get_dependent_modules<T>(&self, modules: &[T]) -> Vec<Utf8PathBuf>
+    where
+        T: AsRef<Utf8Path>,
+    {
+        let modules = modules.iter().map(|m| m.as_ref()).collect::<Vec<_>>();
+        let mut dependent_modules = vec![];
+        for m in modules {
+            let dependent_modules_of_dir = self.get_dependent_modules_of_dir(m);
+            dependent_modules.extend(dependent_modules_of_dir);
+        }
+        dependent_modules
+    }
+
+    pub fn get_dependent_modules_of_dir(&self, module: &Utf8Path) -> Vec<Utf8PathBuf> {
+        let module_index = self
+            .graph
+            .node_indices()
+            .find(|i| self.graph[*i] == module)
+            .expect("module not found in graph");
+        let mut dependent_modules = vec![];
+        for edge in self
+            .graph
+            .edges_directed(module_index, petgraph::Direction::Incoming)
+        {
+            let dependent_module_index = edge.source();
+            dependent_modules.push(self.graph[dependent_module_index].clone());
+        }
+        dependent_modules
     }
 }
 

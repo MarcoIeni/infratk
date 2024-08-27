@@ -27,6 +27,10 @@ pub enum Command {
 
 #[derive(clap::Parser, Debug)]
 pub struct UpgradeArgs {
+    /// If true, don't select accounts interactively but update the ones that are
+    /// detected by git as untracked changes.
+    #[arg(long)]
+    pub git: bool,
     /// If true, copy the output to the clipboard.
     #[arg(long)]
     pub clipboard: bool,
