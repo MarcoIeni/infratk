@@ -36,6 +36,18 @@ impl ModulesGraph {
         }
         Self { graph }
     }
+
+    pub fn get_dependent_modules_containing_lockfile<T>(&self, modules: &[T]) -> Vec<Utf8PathBuf>
+    where
+        T: AsRef<Utf8Path>,
+    {
+        self.get_dependent_modules(modules)
+            .iter()
+            .filter(|m| m.join(LOCKFILE).exists())
+            .cloned()
+            .collect()
+    }
+
     pub fn get_dependent_modules<T>(&self, modules: &[T]) -> Vec<Utf8PathBuf>
     where
         T: AsRef<Utf8Path>,
