@@ -12,6 +12,7 @@ mod log;
 mod provider;
 mod select;
 mod pretty_format;
+mod graph;
 
 use args::CliArgs;
 use clap::Parser as _;

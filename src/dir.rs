@@ -18,3 +18,8 @@ pub fn current_dir_is_simpleinfra() -> bool {
     let current_dir = current_dir();
     current_dir.ends_with("simpleinfra")
 }
+
+pub fn get_stripped_parent(path: &Utf8PathBuf) -> Utf8PathBuf {
+    let parent = path.parent().unwrap();
+    strip_current_dir(parent)
+}
