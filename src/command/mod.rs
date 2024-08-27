@@ -1,5 +1,5 @@
 pub mod config_cmd;
-pub mod graph;
+pub mod graph_cmd;
 pub mod legacy_login;
 pub mod plan_pr;
 pub mod upgrade;
