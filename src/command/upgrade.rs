@@ -25,7 +25,7 @@ pub fn upgrade(args: UpgradeArgs, config: &Config) {
             .collect::<Vec<_>>();
         let graph = ModulesGraph::new(None);
         let dependent_modules = graph.get_dependent_modules_containing_lockfile(&changed_files);
-        println!("Upgrading dependent modules of {changed_files:?}: {dependent_modules:?}");
+        println!("ℹ️ Upgrading dependent modules of {changed_files:?}: {dependent_modules:?}");
         let grouped_dirs = GroupedDirs::new(dependent_modules);
         grouped_dirs.upgrade_all(config)
     } else {
