@@ -11,6 +11,7 @@ mod grouped_dirs;
 mod log;
 mod provider;
 mod select;
+mod pretty_format;
 
 use args::CliArgs;
 use clap::Parser as _;
@@ -23,7 +24,7 @@ async fn main() {
     let args = CliArgs::parse();
     let config = config::parse_config().unwrap();
     match args.command {
-        args::Command::Upgrade => command::upgrade::upgrade(&config),
+        args::Command::Upgrade(args) => command::upgrade::upgrade(args, &config),
         args::Command::PlanPr(args) => command::plan_pr::plan_pr(args, &config),
         args::Command::UpgradeProvider => {
             command::upgrade_provider::upgrade_provider(&config).await

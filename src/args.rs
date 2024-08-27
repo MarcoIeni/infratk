@@ -8,7 +8,7 @@ pub struct CliArgs {
 #[derive(clap::Subcommand, Debug)]
 pub enum Command {
     /// Upgrade terragrunt states or Terraform modules.
-    Upgrade,
+    Upgrade(UpgradeArgs),
     /// Given a PR, run terragrunt/terraform plan on every module that changed.
     PlanPr(PlanPr),
     /// Select a provider and upgrade all lockfiles.
@@ -23,6 +23,13 @@ pub enum Command {
     LegacyLogin,
     /// Get the graph of the terraform modules to see how they depend on each other.
     Graph(GraphArgs),
+}
+
+#[derive(clap::Parser, Debug)]
+pub struct UpgradeArgs {
+    /// If true, copy the output to the clipboard.
+    #[arg(long)]
+    pub clipboard: bool,
 }
 
 #[derive(clap::Parser, Debug)]

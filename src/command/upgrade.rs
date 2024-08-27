@@ -2,23 +2,33 @@ use camino::{Utf8Path, Utf8PathBuf};
 use tracing::debug;
 
 use crate::{
-    aws,
+    args::UpgradeArgs,
+    aws, clipboard,
     cmd_runner::{CmdRunner, PlanOutcome},
     config::Config,
-    git, select,
+    git, pretty_format, select,
 };
 
-pub fn upgrade(config: &Config) {
+pub fn upgrade(args: UpgradeArgs, config: &Config) {
     let repo = git::repo();
     let git_root = git::git_root(&repo);
     let tg_accounts = git_root.join("terragrunt").join("accounts");
     let accounts = list_directories_at_path(&tg_accounts);
     let selected_accounts = select::select_accounts(accounts);
     println!("Selected accounts: {:?}", selected_accounts);
-    upgrade_accounts(selected_accounts, config);
+    let plan_outcome = upgrade_accounts(selected_accounts, config);
+    let output_str = pretty_format::format_output(plan_outcome);
+    println!("{output_str}");
+    if args.clipboard {
+        clipboard::copy_to_clipboard(output_str);
+    }
 }
 
-fn upgrade_accounts(accounts: Vec<Utf8PathBuf>, config: &Config) {
+fn upgrade_accounts(
+    accounts: Vec<Utf8PathBuf>,
+    config: &Config,
+) -> Vec<(Utf8PathBuf, PlanOutcome)> {
+    let mut outcome = vec![];
     for account in accounts {
         // logout before login, to avoid issues with multiple profiles
         aws::sso_logout();
@@ -30,10 +40,11 @@ fn upgrade_accounts(accounts: Vec<Utf8PathBuf>, config: &Config) {
         for state in selected_states {
             // Update lockfile
             cmd_runner.terragrunt_init_upgrade(&state);
-            // Verify that there are no changes to apply, to ensure that the state is up-to-date
-            assert_eq!(cmd_runner.terragrunt_plan(&state), PlanOutcome::NoChanges);
+            let plan_outcome = cmd_runner.terragrunt_plan(&state);
+            outcome.push((state.to_path_buf(), plan_outcome));
         }
     }
+    outcome
 }
 
 fn list_directories_at_path(path: &Utf8Path) -> Vec<Utf8PathBuf> {

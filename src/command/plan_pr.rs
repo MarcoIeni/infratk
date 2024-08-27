@@ -1,4 +1,3 @@
-use core::panic;
 use std::collections::BTreeMap;
 
 use camino::{Utf8Path, Utf8PathBuf};
@@ -12,7 +11,7 @@ use crate::{
     dir::current_dir_is_simpleinfra,
     git::assert_current_branch_is_same_as_pr,
     grouped_dirs::GroupedDirs,
-    LOCKFILE,
+    pretty_format, LOCKFILE,
 };
 
 pub fn plan_pr(args: PlanPr, config: &Config) {
@@ -27,46 +26,11 @@ pub fn plan_pr(args: PlanPr, config: &Config) {
         .map(|file| file.parent().unwrap())
         .collect();
     let output = plan_directories(directories, config);
-    let output_str = format_output(output);
+    let output_str = pretty_format::format_output(output);
     println!("{output_str}");
     if args.clipboard {
         clipboard::copy_to_clipboard(output_str);
     }
-}
-
-/// Print two lists of directories, one for each outcome
-fn format_output(output: Vec<(Utf8PathBuf, PlanOutcome)>) -> String {
-    let mut output_str = String::from("## 📃📃 Plan summary 📃📃\n");
-    let (no_changes, changes): (Vec<_>, Vec<_>) = output
-        .into_iter()
-        .partition(|(_, o)| matches!(o, PlanOutcome::NoChanges));
-    if !no_changes.is_empty() {
-        output_str.push_str("\nNo changes detected (apply not needed):\n");
-    }
-    for (dir, _) in no_changes {
-        output_str.push_str(&format!("✅ {}\n", dir));
-    }
-
-    if !changes.is_empty() {
-        output_str.push_str("\nChanges detected (apply needed):\n");
-    }
-    for (dir, _) in &changes {
-        output_str.push_str(&format!("❌ {}\n", dir));
-    }
-
-    if !changes.is_empty() {
-        output_str.push_str("\n## 📃📃 Plan output 📃📃\n");
-    }
-    for (dir, output) in &changes {
-        output_str.push_str(&format!("👉 {}:\n", dir));
-        if let PlanOutcome::Changes(output) = output {
-            output_str.push_str(&format!("\n```\n{}\n```\n", output));
-        } else {
-            panic!("Expected changes, got no changes");
-        }
-    }
-
-    output_str
 }
 
 fn plan_directories(
