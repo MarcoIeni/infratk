@@ -67,13 +67,37 @@ impl ModulesGraph {
             .node_indices()
             .find(|i| self.graph[*i] == module)
             .expect("module not found in graph");
-        let mut bfs = Bfs::new(&self.graph, module_index);
         let mut dependent_modules = vec![];
-        while let Some(nx) = bfs.next(&self.graph) {
-            dependent_modules.push(self.graph[nx].clone());
+
+        let inverted_graph = self.invert_graph();
+        let mut bfs = Bfs::new(&inverted_graph, module_index);
+
+        while let Some(nx) = bfs.next(&inverted_graph) {
+            let dep = inverted_graph[nx].clone();
+            debug!("Found dependent module: {:?}", dep);
+            dependent_modules.push(dep);
         }
 
         dependent_modules
+    }
+
+    fn invert_graph(&self) -> Graph<Utf8PathBuf, i32> {
+        let mut inverted_graph = Graph::new();
+        let mut node_map = HashMap::new();
+
+        for node_index in self.graph.node_indices() {
+            let node = &self.graph[node_index];
+            let new_node_index = inverted_graph.add_node(node.clone());
+            node_map.insert(node_index, new_node_index);
+        }
+
+        for edge in self.graph.edge_indices() {
+            let (source, target) = self.graph.edge_endpoints(edge).unwrap();
+            let weight = self.graph.edge_weight(edge).unwrap();
+            inverted_graph.add_edge(node_map[&target], node_map[&source], *weight);
+        }
+
+        inverted_graph
     }
 }
 
