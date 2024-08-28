@@ -1,9 +1,9 @@
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
 
 use camino::{Utf8Path, Utf8PathBuf};
 use tracing::{debug, warn};
 
-use petgraph::{graph::NodeIndex, visit::EdgeRef as _, Graph};
+use petgraph::{graph::NodeIndex, visit::Bfs, Graph};
 
 use crate::{dir, LOCKFILE};
 
@@ -58,7 +58,7 @@ impl ModulesGraph {
             let dependent_modules_of_dir = self.get_dependent_modules_of_dir(m);
             dependent_modules.extend(dependent_modules_of_dir);
         }
-        dependent_modules
+        remove_duplicates(dependent_modules)
     }
 
     pub fn get_dependent_modules_of_dir(&self, module: &Utf8Path) -> Vec<Utf8PathBuf> {
@@ -67,16 +67,28 @@ impl ModulesGraph {
             .node_indices()
             .find(|i| self.graph[*i] == module)
             .expect("module not found in graph");
+        let mut bfs = Bfs::new(&self.graph, module_index);
         let mut dependent_modules = vec![];
-        for edge in self
-            .graph
-            .edges_directed(module_index, petgraph::Direction::Incoming)
-        {
-            let dependent_module_index = edge.source();
-            dependent_modules.push(self.graph[dependent_module_index].clone());
+        while let Some(nx) = bfs.next(&self.graph) {
+            dependent_modules.push(self.graph[nx].clone());
         }
+
         dependent_modules
     }
+}
+
+fn remove_duplicates(modules: Vec<Utf8PathBuf>) -> Vec<Utf8PathBuf> {
+    let mut seen = HashSet::new();
+    let mut unique_modules = vec![];
+    for module in modules {
+        let value_was_inserted = seen.insert(module.clone());
+        if value_was_inserted {
+            unique_modules.push(module);
+        }
+        // If the value wasn't inserted it means that it was already in the set.
+        // I.e. we already saw it, so it's a duplicate.
+    }
+    unique_modules
 }
 
 fn add_node(
