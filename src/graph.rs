@@ -93,8 +93,7 @@ impl ModulesGraph {
 
         for edge in self.graph.edge_indices() {
             let (source, target) = self.graph.edge_endpoints(edge).unwrap();
-            let weight = self.graph.edge_weight(edge).unwrap();
-            inverted_graph.add_edge(node_map[&target], node_map[&source], *weight);
+            inverted_graph.add_edge(node_map[&target], node_map[&source], 0);
         }
 
         inverted_graph
