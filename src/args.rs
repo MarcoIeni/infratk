@@ -1,3 +1,7 @@
+use std::collections::BTreeMap;
+
+use semver::Version;
+
 #[derive(clap::Parser, Debug)]
 #[command(about, version, author)]
 pub struct CliArgs {
@@ -53,4 +57,21 @@ pub struct GraphArgs {
     /// Check for outdated providers and show them in the graph.
     #[arg(long)]
     pub outdated: bool,
+    /// Minimum versions of providers to not be considered outdated.
+    /// E.g. `--min-versions aws=3.0.0,google=2.0.0`.
+    min_versions: Vec<String>,
+}
+
+impl GraphArgs {
+    pub fn min_versions(&self) -> BTreeMap<String, Version> {
+        self.min_versions
+            .iter()
+            .map(|s| {
+                let mut parts = s.split('=');
+                let provider = parts.next().unwrap();
+                let version = parts.next().unwrap();
+                (provider.to_string(), Version::parse(version).unwrap())
+            })
+            .collect()
+    }
 }

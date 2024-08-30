@@ -1,7 +1,8 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use camino::Utf8PathBuf;
 use petgraph::dot::{self, Dot};
+use semver::Version;
 
 use crate::{args::GraphArgs, clipboard, dir, graph::ModulesGraph, provider};
 
@@ -9,7 +10,7 @@ pub async fn print_graph(args: GraphArgs) {
     assert!(dir::current_dir_is_simpleinfra());
 
     let outdated_packages = if args.outdated {
-        Some(get_packages_with_outdated_providers().await)
+        Some(get_packages_with_outdated_providers(&args.min_versions()).await)
     } else {
         None
     };
@@ -28,14 +29,21 @@ pub async fn print_graph(args: GraphArgs) {
     }
 }
 
-async fn get_packages_with_outdated_providers() -> BTreeSet<Utf8PathBuf> {
+async fn get_packages_with_outdated_providers(
+    min_versions: &BTreeMap<String, Version>,
+) -> BTreeSet<Utf8PathBuf> {
     let lockfiles = provider::get_all_lockfiles();
     let providers = provider::get_all_providers(&lockfiles);
     let outdated_providers = provider::outdated_providers(providers).await.unwrap();
 
     let mut outdated_packages = BTreeSet::new();
-    for (_provider, versions) in outdated_providers.providers {
-        for (_version, lockfiles) in versions.versions {
+    for (provider, versions) in outdated_providers.providers {
+        for (version, lockfiles) in versions.versions {
+            if let Some(min_ver) = min_versions.get(&provider) {
+                if &version > min_ver {
+                    continue;
+                }
+            }
             let parents = lockfiles
                 .iter()
                 .map(dir::get_stripped_parent)
