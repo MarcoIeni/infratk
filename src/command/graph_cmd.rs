@@ -40,7 +40,7 @@ async fn get_packages_with_outdated_providers(
     for (provider, versions) in outdated_providers.providers {
         for (version, lockfiles) in versions.versions {
             if let Some(min_ver) = min_versions.get(&provider) {
-                if &version > min_ver {
+                if &version >= min_ver {
                     continue;
                 }
             }
