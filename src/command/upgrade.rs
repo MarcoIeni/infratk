@@ -2,18 +2,12 @@ use camino::{Utf8Path, Utf8PathBuf};
 use tracing::debug;
 
 use crate::{
-    args::UpgradeArgs,
-    aws, clipboard,
-    cmd_runner::{CmdRunner, PlanOutcome},
-    config::Config,
-    dir, git,
-    graph::ModulesGraph,
-    grouped_dirs::GroupedDirs,
-    pretty_format, select,
+    args::UpgradeArgs, aws, clipboard, cmd_runner::{CmdRunner, PlanOutcome}, config::Config, dir, envirnoment::assert_aws_env_is_not_set, git, graph::ModulesGraph, grouped_dirs::GroupedDirs, pretty_format, select
 };
 
 pub fn upgrade(args: UpgradeArgs, config: &Config) {
     let repo = git::repo();
+    assert_aws_env_is_not_set();
 
     let plan_outcome = if args.git {
         let changed_files = repo

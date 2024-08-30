@@ -8,12 +8,14 @@ use std::fmt;
 use crate::{
     config::Config,
     dir::{self, current_dir_is_simpleinfra},
+    envirnoment::assert_aws_env_is_not_set,
     grouped_dirs, pretty_format,
     provider::{self, get_all_lockfiles, get_all_providers},
 };
 
 pub async fn upgrade_provider(config: &Config) {
     assert!(current_dir_is_simpleinfra());
+    assert_aws_env_is_not_set();
     let lockfiles = get_all_lockfiles();
     let providers = get_all_providers(&lockfiles);
     let outdated_providers = provider::outdated_providers(providers).await.unwrap();
