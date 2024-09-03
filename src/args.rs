@@ -58,7 +58,7 @@ pub struct GraphArgs {
     #[arg(long)]
     pub outdated: bool,
     /// Minimum versions of providers to not be considered outdated.
-    /// E.g. `--min-versions aws=3.0.0,google=2.0.0`.
+    /// E.g. `--min-versions hashicorp/aws=3.0.0,hashicorp/google=2.0.0`.
     #[arg(long)]
     min_versions: Vec<String>,
 }
