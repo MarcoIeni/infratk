@@ -130,18 +130,34 @@ pub fn git_root(repo: &Repo) -> camino::Utf8PathBuf {
 }
 
 /// Return files changed between the current working tree and the point where
-/// the current branch diverged from the repository's default branch.
+/// the current branch diverged from the freshly fetched default branch.
 pub fn current_branch_changed_files(repo: &Repo) -> Vec<Utf8PathBuf> {
     let default_branch = default_branch_ref(repo);
+    changed_files_since_updated_default_branch(repo, &default_branch)
+        .expect("failed to update the default branch and calculate changed files")
+}
+
+fn changed_files_since_updated_default_branch(
+    repo: &Repo,
+    default_branch: &str,
+) -> anyhow::Result<Vec<Utf8PathBuf>> {
+    let remote_ref = format!("refs/remotes/origin/{default_branch}");
+    let refspec = format!("+refs/heads/{default_branch}:{remote_ref}");
+    println!(
+        "🔄 Updating default branch origin/{default_branch} before calculating changed files..."
+    );
+    repo.git(&["fetch", "--no-tags", "origin", &refspec])
+        .context("failed to fetch the default branch from origin")?;
+
     let merge_base = repo
-        .git(&["merge-base", "HEAD", &default_branch])
-        .expect("failed to find the merge base with the default branch");
+        .git(&["merge-base", "HEAD", &remote_ref])
+        .context("failed to find the merge base with the default branch")?;
     let merge_base = merge_base.trim();
     let output = repo
         .git(&["diff", "--name-only", merge_base, "--"])
-        .expect("failed to list files changed on the current branch");
+        .context("failed to list files changed on the current branch")?;
 
-    output.lines().map(Utf8PathBuf::from).collect()
+    Ok(output.lines().map(Utf8PathBuf::from).collect())
 }
 
 fn default_branch_ref(repo: &Repo) -> String {
