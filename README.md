@@ -6,7 +6,8 @@ Utility for managing Rust [simpleinfra](https://github.com/rust-lang/simpleinfra
 
 - Apply the current branch's changes to every affected Terraform/Terragrunt
   root module, logging into each AWS account and preserving the normal apply
-  confirmation prompt
+  confirmation prompt. Fetches the default branch from `origin` before calculating
+  changes, using the updated remote reference as the comparison base
 - Update Terragrunt states verifying that the changes don't edit the state
 - Run `plan` for every lockfile of a PR
 - Show the dependency graph of the modules
